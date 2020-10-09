@@ -15,17 +15,18 @@
 * limitations under the License.
 */
 #include "gtest/gtest.h"
-#include "BitMatrix.h"
-#include "BitMatrixUtility.h"
+#include "BitMatrixIO.h"
 #include "oned/ODUPCEWriter.h"
+
+#include <stdexcept>
 
 using namespace ZXing;
 using namespace ZXing::OneD;
 
 namespace {
-	std::string Encode(const std::wstring& input, size_t length)
+	std::string Encode(const std::wstring& input)
 	{
-		auto result = Utility::ToString(UPCEWriter().encode(input, (int)length, 0), '1', '0', false);
+		auto result = ToString(UPCEWriter().encode(input, 0, 0), '1', '0', false);
 		return result.substr(0, result.size() - 1);	// remove the \n at the end
 	}
 }
@@ -33,25 +34,25 @@ namespace {
 TEST(ODUPCEWriterTest, Encode1)
 {
 	std::wstring toEncode = L"05096893";
-	std::string expected = "0000000000010101110010100111000101101011110110111001011101010100000000000";
-	EXPECT_EQ(Encode(toEncode, expected.length()), expected);
+	std::string expected = "000010101110010100111000101101011110110111001011101010100000";
+	EXPECT_EQ(Encode(toEncode), expected);
 }
 
 TEST(ODUPCEWriterTest, EncodeSystem1)
 {
 	std::wstring toEncode = L"12345670";
-	std::string expected = "0000000000010100100110111101010001101110010000101001000101010100000000000";
-	EXPECT_EQ(Encode(toEncode, expected.length()), expected);
+	std::string expected = "000010100100110111101010001101110010000101001000101010100000";
+	EXPECT_EQ(Encode(toEncode), expected);
 }
 
 TEST(ODUPCEWriterTest, AddChecksumAndEncode)
 {
 	std::wstring toEncode = L"0509689";
-	std::string expected = "0000000000010101110010100111000101101011110110111001011101010100000000000";
-	EXPECT_EQ(Encode(toEncode, expected.length()), expected);
+	std::string expected = "000010101110010100111000101101011110110111001011101010100000";
+	EXPECT_EQ(Encode(toEncode), expected);
 }
 
 TEST(ODUPCEWriterTest, EncodeIllegalCharacters)
 {
-	EXPECT_THROW(Encode(L"05096abc", 100), std::invalid_argument);
+	EXPECT_THROW(Encode(L"05096abc"), std::invalid_argument);
 }

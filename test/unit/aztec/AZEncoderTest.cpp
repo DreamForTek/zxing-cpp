@@ -16,10 +16,12 @@
 */
 #include "gtest/gtest.h"
 #include "aztec/AZEncoder.h"
-#include "BitMatrix.h"
+#include "BitMatrixIO.h"
 #include "BitArray.h"
-#include "BitMatrixUtility.h"
 #include "BitArrayUtility.h"
+
+#include <algorithm>
+#include <stdexcept>
 
 namespace ZXing {
 	namespace Aztec {
@@ -92,7 +94,7 @@ TEST(AZEncoderTest, Encode1)
 {
 	TestEncode(
 		"This is an example Aztec symbol for Wikipedia.",
-		true, 3, Utility::ParseBitMatrix(
+		true, 3, ParseBitMatrix(
 			"X     X X       X     X X     X     X         \n"
 			"X         X     X X     X   X X   X X       X \n"
 			"X X   X X X X X   X X X                 X     \n"
@@ -126,7 +128,7 @@ TEST(AZEncoderTest, Encode2)
 		"Aztec Code is a public domain 2D matrix barcode symbology"
 		" of nominally square symbols built on a square grid with a "
 		"distinctive square bullseye pattern at their center.",
-		false, 6, Utility::ParseBitMatrix(
+		false, 6, ParseBitMatrix(
 			"        X X     X X     X     X     X   X X X         X   X         X   X X       \n"
 			"  X       X X     X   X X   X X       X             X     X   X X   X           X \n"
 			"  X   X X X     X   X   X X     X X X   X   X X               X X       X X     X \n"
@@ -184,21 +186,8 @@ TEST(AZEncoderTest, UserSpecifiedLayers)
 	EXPECT_EQ(aztec.layers, 32);
 	EXPECT_FALSE(aztec.compact);
 
-	try {
-		aztec = Aztec::Encoder::Encode(alphabet, 25, 33);
-		FAIL() << "Encode should have failed.  No such thing as 33 layers";
-	}
-	catch (const std::invalid_argument&) {
-		// expected
-	}
-
-	try {
-		aztec = Aztec::Encoder::Encode(alphabet, 25, -1);
-		FAIL() << "Encode should have failed.  Text can't fit in 1-layer compact";
-	}
-	catch (const std::invalid_argument&) {
-		// expected
-	}
+	EXPECT_THROW({Aztec::Encoder::Encode(alphabet, 25, 33);}, std::invalid_argument );
+	EXPECT_THROW({Aztec::Encoder::Encode(alphabet, 25, -1);}, std::invalid_argument );
 }
 
 TEST(AZEncoderTest, BorderCompact4Case)
@@ -208,17 +197,10 @@ TEST(AZEncoderTest, BorderCompact4Case)
 	std::string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 	// encodes as 26 * 5 * 4 = 520 bits of data
 	std::string alphabet4 = alphabet + alphabet + alphabet + alphabet;
-	Aztec::EncodeResult aztec;
-	try {
-		aztec = Aztec::Encoder::Encode(alphabet4, 0, -4);
-		FAIL() << "Encode should have failed.  Text can't fit in 1-layer compact";
-	}
-	catch (const std::invalid_argument&) {
-		// expected
-	}
+	EXPECT_THROW({Aztec::Encoder::Encode(alphabet4, 0, -4);}, std::invalid_argument );
 
 	// If we just try to encode it normally, it will go to a non-compact 4 layer
-	aztec = Aztec::Encoder::Encode(alphabet4, 0, Aztec::Encoder::DEFAULT_AZTEC_LAYERS);
+	auto aztec = Aztec::Encoder::Encode(alphabet4, 0, Aztec::Encoder::DEFAULT_AZTEC_LAYERS);
 	EXPECT_FALSE(aztec.compact);
 	EXPECT_EQ(aztec.layers, 4);
 

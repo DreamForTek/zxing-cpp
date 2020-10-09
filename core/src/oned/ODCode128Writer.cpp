@@ -22,6 +22,7 @@
 #include <list>
 #include <numeric>
 #include <stdexcept>
+#include <vector>
 
 namespace ZXing {
 namespace OneD {
@@ -56,7 +57,7 @@ enum class CType {
 
 static CType FindCType(const std::wstring& value, int start)
 {
-	int last = static_cast<int>(value.length());
+	int last = Size(value);
 	if (start >= last) {
 		return CType::UNCODABLE;
 	}
@@ -87,7 +88,7 @@ static int ChooseCode(const std::wstring& value, int start, int oldCode)
 		return CODE_CODE_B;
 	}
 	if (lookahead == CType::UNCODABLE) {
-		if (start < (int)value.length()) {
+		if (start < Size(value)) {
 			int c = value[start];
 			if (c < ' ' || (oldCode == CODE_CODE_A && (c < '`' || (c >= ESCAPE_FNC_1 && c <= ESCAPE_FNC_4)))) {
 				// can continue in code A, encodes ASCII 0 to 95 or FNC1 to FNC4
@@ -145,7 +146,7 @@ BitMatrix
 Code128Writer::encode(const std::wstring& contents, int width, int height) const
 {
 	// Check length
-	int length = static_cast<int>(contents.length());
+	int length = Size(contents);
 	if (length < 1 || length > 80) {
 		throw std::invalid_argument("Contents length should be between 1 and 80 characters");
 	}
@@ -262,7 +263,7 @@ Code128Writer::encode(const std::wstring& contents, int width, int height) const
 	// Compute code width
 	int codeWidth = 0;
 	for (const std::vector<int>& pattern : patterns) {
-		codeWidth += std::accumulate(pattern.begin(), pattern.end(), 0);
+		codeWidth += Reduce(pattern);
 	}
 
 	// Compute result

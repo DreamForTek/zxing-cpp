@@ -22,10 +22,12 @@
 #include "CharacterSetECI.h"
 #include "TextEncoder.h"
 #include "ZXBigInteger.h"
+#include "ZXContainerAlgorithms.h"
 
 #include <cstdint>
-#include <array>
 #include <algorithm>
+#include <string>
+#include <stdexcept>
 
 namespace ZXing {
 namespace Pdf417 {
@@ -525,7 +527,7 @@ HighLevelEncoder::EncodeHighLevel(const std::wstring& msg, Compaction compaction
 		EncodingECI(CharacterSetECI::ValueForCharset(encoding), highLevel);
 	}
 
-	int len = static_cast<int>(msg.length());
+	int len = Size(msg);
 	int p = 0;
 	int textSubMode = SUBMODE_ALPHA;
 
@@ -536,7 +538,7 @@ HighLevelEncoder::EncodeHighLevel(const std::wstring& msg, Compaction compaction
 	}
 	else if (compaction == Compaction::BYTE) {
 		std::string bytes = TextEncoder::FromUnicode(msg, encoding);
-		EncodeBinary(bytes, p, static_cast<int>(bytes.length()), BYTE_COMPACTION, highLevel);
+		EncodeBinary(bytes, p, Size(bytes), BYTE_COMPACTION, highLevel);
 	}
 	else if (compaction == Compaction::NUMERIC) {
 		highLevel.push_back(LATCH_TO_NUMERIC);
@@ -577,7 +579,7 @@ HighLevelEncoder::EncodeHighLevel(const std::wstring& msg, Compaction compaction
 					}
 					else {
 						//Mode latch performed by encodeBinary()
-						EncodeBinary(bytes, 0, static_cast<int>(bytes.length()), encodingMode, highLevel);
+						EncodeBinary(bytes, 0, Size(bytes), encodingMode, highLevel);
 						encodingMode = BYTE_COMPACTION;
 						textSubMode = SUBMODE_ALPHA; //Reset after latch
 					}

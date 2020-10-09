@@ -18,11 +18,18 @@
 
 #include "BitArray.h"
 
+#include <string>
+
 namespace ZXing {
 
 class Result;
 
 namespace OneD {
+
+namespace UPCEANExtension5Support {
+int ExtensionChecksum(const std::string& s);
+std::string ParseExtension5String(const std::string& raw);
+} // namespace UPCEANExtension5Support
 
 class UPCEANExtensionSupport
 {

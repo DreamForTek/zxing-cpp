@@ -18,8 +18,8 @@
 #include "MCReader.h"
 #include "MCDecoder.h"
 #include "MCBitMatrixParser.h"
-#include "DecodeHints.h"
 #include "Result.h"
+#include "DecodeHints.h"
 #include "DecoderResult.h"
 #include "BinaryBitmap.h"
 #include "BitMatrix.h"
@@ -33,14 +33,11 @@ namespace MaxiCode {
 * which contains only an unrotated, unskewed, image of a code, with some white border
 * around it. This is a specialized method that works exceptionally fast in this special
 * case.
-*
-* @see com.google.zxing.datamatrix.DataMatrixReader#extractPureBits(BitMatrix)
-* @see com.google.zxing.qrcode.QRCodeReader#extractPureBits(BitMatrix)
 */
 static BitMatrix ExtractPureBits(const BitMatrix& image)
 {
 	int left, top, width, height;
-	if (!image.getEnclosingRectangle(left, top, width, height)) {
+	if (!image.findBoundingBox(left, top, width, height, BitMatrixParser::MATRIX_WIDTH)) {
 		return {};
 	}
 
@@ -58,24 +55,23 @@ static BitMatrix ExtractPureBits(const BitMatrix& image)
 	return result;
 }
 
+Reader::Reader(const DecodeHints& hints) : _isPure(hints.isPure()) {}
+
 Result
 Reader::decode(const BinaryBitmap& image) const
 {
-	if (!image.isPureBarcode()) {
-		return Result(DecodeStatus::NotFound);
-	}
-
 	auto binImg = image.getBlackMatrix();
 	if (binImg == nullptr) {
 		return Result(DecodeStatus::NotFound);
 	}
 
+	//TODO: this only works with effectively 'pure' barcodes. Needs proper detector.
 	BitMatrix bits = ExtractPureBits(*binImg);
 	if (bits.empty()) {
 		return Result(DecodeStatus::NotFound);
 	}
 
-	return Result(Decoder::Decode(bits), {}, BarcodeFormat::MAXICODE);
+	return Result(Decoder::Decode(bits), {}, BarcodeFormat::MaxiCode);
 }
 
 } // MaxiCode

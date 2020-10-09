@@ -16,8 +16,12 @@
 
 #include "ZXBigInteger.h"
 #include "BitHacks.h"
+
 #include <algorithm>
+#include <cassert>
 #include <cctype>
+#include <cstdint>
+#include <utility>
 
 namespace ZXing {
 

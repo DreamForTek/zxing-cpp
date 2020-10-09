@@ -16,6 +16,7 @@
 
 #if (_MSC_VER >= 1915)
 #define no_init_all deprecated
+#pragma warning(disable : 4996)
 #endif
 
 #include "BarcodeReader.h"
@@ -63,11 +64,11 @@ BarcodeReader::init(bool tryHarder, bool tryRotate, const Platform::Array<Barcod
 	hints.setTryRotate(tryRotate);
 
 	if (types != nullptr && types->Length > 0) {
-		std::vector<BarcodeFormat> barcodeFormats;
+		BarcodeFormats barcodeFormats;
 		for (BarcodeType type : types) {
-			barcodeFormats.emplace_back(BarcodeReader::ConvertRuntimeToNative(type));
+			barcodeFormats |= BarcodeReader::ConvertRuntimeToNative(type);
 		}
-		hints.setPossibleFormats(barcodeFormats);
+		hints.setFormats(barcodeFormats);
 	}
 
 	m_reader.reset(new MultiFormatReader(hints));
@@ -112,8 +113,6 @@ BarcodeFormat BarcodeReader::ConvertRuntimeToNative(BarcodeType type)
 		return BarcodeFormat::UPC_A;
 	case BarcodeType::UPC_E:
 		return BarcodeFormat::UPC_E;
-	case BarcodeType::UPC_EAN_EXTENSION:
-		return BarcodeFormat::UPC_EAN_EXTENSION;
 	default:
 		std::wstring typeAsString = type.ToString()->Begin();
 		throw std::invalid_argument("Unknown Barcode Type: " + TextUtfEncoding::ToUtf8(typeAsString));
@@ -155,8 +154,6 @@ BarcodeType BarcodeReader::ConvertNativeToRuntime(BarcodeFormat format)
 		return BarcodeType::UPC_A;
 	case BarcodeFormat::UPC_E:
 		return BarcodeType::UPC_E;
-	case BarcodeFormat::UPC_EAN_EXTENSION:
-		return BarcodeType::UPC_EAN_EXTENSION;
 	default:
 		throw std::invalid_argument("Unknown Barcode Format ");
 	}

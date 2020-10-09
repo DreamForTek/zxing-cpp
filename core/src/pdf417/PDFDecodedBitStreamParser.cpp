@@ -29,6 +29,7 @@
 
 #include <array>
 #include <cassert>
+#include <utility>
 
 namespace ZXing {
 namespace Pdf417 {
@@ -425,7 +426,7 @@ static int ByteCompaction(int mode, const std::vector<int>& codewords, Character
 			}
 		}
 	}
-	TextDecoder::Append(result, decodedBytes.data(), decodedBytes.length(), encoding);
+	TextDecoder::Append(result, decodedBytes.data(), Size(decodedBytes), encoding);
 	return codeIndex;
 }
 
@@ -731,7 +732,7 @@ DecodedBitStreamParser::Decode(const std::vector<int>& codewords, int ecLevel)
 			break;
 		}
 		}
-		if (codeIndex < (int)codewords.size()) {
+		if (codeIndex < Size(codewords)) {
 			code = codewords[codeIndex++];
 		}
 		else {

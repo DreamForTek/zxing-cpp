@@ -21,7 +21,8 @@
 #include "pdf417/PDFDecoderResultExtra.h"
 #include "ImageLoader.h"
 
-#include <algorithm>
+#include <list>
+#include <utility>
 
 namespace ZXing::Test {
 
@@ -47,7 +48,7 @@ Result Pdf417MultipleCodeReader::readMultiple(const std::vector<fs::path>& imgPa
 	for (const auto& r : allResults)
 		text.append(r.text());
 
-	return {std::move(text), {}, BarcodeFormat::PDF_417};
+	return {std::move(text), {}, BarcodeFormat::PDF417};
 }
 
 } // ZXing::Test

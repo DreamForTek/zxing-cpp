@@ -25,7 +25,8 @@
 #include "TextDecoder.h"
 #include "ZXContainerAlgorithms.h"
 
-#include <algorithm>
+#include <string>
+#include <type_traits>
 
 namespace ZXing {
 
@@ -60,6 +61,7 @@ UPCEANReader::FindStartGuardPattern(const BitArray& row)
 	return {row.end(), row.end()};
 #else
 	// this is the 'right' way to do it: scan for a pattern of the form 3111, where 3 is the quitezone
+	// note upstream uses a quite-zone width of 3 modules but the spec requires 9
 	const auto& pattern = UPCEANCommon::START_END_PATTERN;
 	using Counters = std::decay<decltype(pattern)>::type;
 	Counters counters{};
@@ -125,14 +127,15 @@ UPCEANReader::decodeRow(int rowNumber, const BitArray& row, BitArray::Range star
 	{
 		decodeResult.metadata().put(ResultMetadata::UPC_EAN_EXTENSION, extensionResult.text());
 		decodeResult.metadata().putAll(extensionResult.metadata());
-		decodeResult.addResultPoints(extensionResult.resultPoints());
+		//TODO: extend position in include extension
+		//decodeResult.addResultPoints(extensionResult.resultPoints());
 	}
 
 	if (!_allowedExtensions.empty() && !Contains(_allowedExtensions, extensionResult.text().size())) {
 		return Result(DecodeStatus::NotFound);
 	}
 
-	if (format == BarcodeFormat::EAN_13 || format == BarcodeFormat::UPC_A) {
+	if (format == BarcodeFormat::EAN13 || format == BarcodeFormat::UPCA) {
 		std::string countryID = EANManufacturerOrgSupport::LookupCountryIdentifier(result);
 		if (!countryID.empty()) {
 			decodeResult.metadata().put(ResultMetadata::POSSIBLE_COUNTRY, TextDecoder::FromLatin1(countryID));
@@ -153,7 +156,7 @@ UPCEANReader::decodeRow(int rowNumber, const BitArray& row, BitArray::Range star
 bool
 UPCEANReader::checkChecksum(const std::string& s) const
 {
-	return UPCEANCommon::ComputeChecksum(s, 1) == s.back() - '0';
+	return GTIN::IsCheckDigitValid(s);
 }
 
 } // OneD

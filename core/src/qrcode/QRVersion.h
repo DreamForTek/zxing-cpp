@@ -19,6 +19,7 @@
 #include "QRECB.h"
 #include "QRErrorCorrectionLevel.h"
 
+#include <array>
 #include <initializer_list>
 #include <vector>
 
@@ -56,8 +57,8 @@ public:
 		return _ecBlocks[(int)ecLevel];
 	}
 
-	void buildFunctionPattern(BitMatrix& bitMatrix) const;
-	
+	BitMatrix buildFunctionPattern() const;
+
 	/**
 	* <p>Deduces version information purely from QR Code dimensions.</p>
 	*

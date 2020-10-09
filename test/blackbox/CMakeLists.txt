@@ -1,23 +1,12 @@
-cmake_minimum_required (VERSION 3.1.3)
+cmake_minimum_required(VERSION 3.14)
 
-project (ZXingTest)
+include(FetchContent)
+FetchContent_Declare (fmtlib
+        GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+        GIT_TAG 7.0.3)
+FetchContent_MakeAvailable (fmtlib) # Adds fmt::fmt
 
-set (ENABLE_ENCODERS ON CACHE BOOL "Check to include encoders")
-set (ENABLE_DECODERS ON CACHE BOOL "Check to include decoders")
-
-set (CMAKE_CXX_STANDARD 17)
-
-if (MSVC)
-    add_definitions (-DUNICODE -D_UNICODE)
-    add_definitions (-D_SCL_SECURE_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_WARNINGS -DNOMINMAX )
-
-    set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /Oi /GS-")
-    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Oi /GS-")
-endif()
-
-add_subdirectory (${CMAKE_CURRENT_SOURCE_DIR}/../../core ${CMAKE_BINARY_DIR}/ZXingCore)
-
-if (ENABLE_DECODERS)
+if (BUILD_READERS)
     add_executable (ReaderTest
         TestReaderMain.cpp
         ImageLoader.h
@@ -28,30 +17,31 @@ if (ENABLE_DECODERS)
         QRCodeStructuredAppendReader.cpp
         BlackboxTestRunner.h
         BlackboxTestRunner.cpp
+        ZXFilesystem.h
     )
 
-    target_include_directories (ReaderTest
-        PRIVATE ../../thirdparty/stb
+    target_include_directories (ReaderTest PRIVATE ../../thirdparty/stb)
+
+    target_link_libraries(ReaderTest
+        ZXing::ZXing fmt::fmt
+        $<$<AND:$<CXX_COMPILER_ID:GNU>,$<VERSION_LESS:$<CXX_COMPILER_VERSION>,9.0>>:stdc++fs>
     )
 
-    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-        target_link_libraries (ReaderTest stdc++fs) # To use std::experimental::filesystem
-    elseif (APPLE)
-#        target_compile_options (ReaderTest PRIVATE -stdlib=libc++ -lc++experimental)
-    endif()
-
-    target_link_libraries (ReaderTest ZXingCore)
-
+if (MSVC)
+    target_compile_options(ReaderTest PRIVATE
+        -D_CRT_SECURE_NO_WARNINGS
+    )
 endif()
 
-if (ENABLE_ENCODERS)
-	add_executable (WriterTest
-		TestWriterMain.cpp
-	)
+    add_test(NAME ReaderTest COMMAND ReaderTest ${CMAKE_CURRENT_SOURCE_DIR}/../samples)
+endif()
 
-	target_include_directories (WriterTest
-		PRIVATE ../../thirdparty/stb
-	)
+if (BUILD_WRITERS)
+    add_executable (WriterTest TestWriterMain.cpp)
 
-	target_link_libraries (WriterTest ZXingCore)
+    target_include_directories (WriterTest PRIVATE ../../thirdparty/stb)
+
+    target_link_libraries (WriterTest ZXing::ZXing)
+
+    add_test(NAME WriterTest COMMAND WriterTest)
 endif()

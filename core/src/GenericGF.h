@@ -18,6 +18,7 @@
 
 #include "GenericGFPoly.h"
 
+#include <algorithm>
 #include <cassert>
 #include <vector>
 #include <stdexcept>
@@ -78,7 +79,7 @@ public:
 	*
 	* @return sum/difference of a and b
 	*/
-	int addOrSubtract(int a, int b) const {
+	int addOrSubtract(int a, int b) const noexcept {
 		return a ^ b;
 	}
 
@@ -96,27 +97,29 @@ public:
 		if (a == 0) {
 			throw std::invalid_argument("a == 0");
 		}
-		return _logTable[a];
+		return _logTable.at(a);
 	}
 
 	/**
 	* @return multiplicative inverse of a
 	*/
 	int inverse(int a) const {
-		if (a == 0) {
-			throw std::invalid_argument("a == 0");
-		}
-		return _expTable[_size - _logTable[a] - 1];
+		return _expTable[_size - log(a) - 1];
 	}
 
 	/**
 	* @return product of a and b in GF(size)
 	*/
-	int multiply(int a, int b) const {
+	int multiply(int a, int b) const noexcept {
 		if (a == 0 || b == 0) {
 			return 0;
 		}
-		return _expTable[(_logTable[a] + _logTable[b]) % (_size - 1)];
+		auto fast_mod = [](const int input, const int ceil) {
+			// avoid using the '%' modulo operator => ReedSolomon computation is more than twice as fast
+			// see also https://stackoverflow.com/a/33333636/2088798
+			return input < ceil ? input : input - ceil;
+		};
+		return _expTable[fast_mod(_logTable[a] + _logTable[b], _size - 1)];
 	}
 
 	
@@ -129,7 +132,7 @@ public:
 	}
 
 private:
-	int _size;
+	const int _size;
 	int _generatorBase;
 	std::vector<int> _expTable;
 	std::vector<int> _logTable;

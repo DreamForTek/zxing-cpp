@@ -17,6 +17,8 @@
 
 #include "PDFBarcodeValue.h"
 
+#include <algorithm>
+
 namespace ZXing {
 namespace Pdf417 {
 
@@ -36,18 +38,12 @@ BarcodeValue::setValue(int value)
 std::vector<int>
 BarcodeValue::value() const
 {
-	int maxConfidence = -1;
+	int maxConfidence = std::max_element(_values.begin(), _values.end(), [](auto& l, auto& r) { return l.second < r.second; })->second;
+
 	std::vector<int> result;
-	for (auto& entry : _values) {
-		if (entry.second > maxConfidence) {
-			maxConfidence = entry.second;
-			result.clear();
-			result.push_back(entry.first);
-		}
-		else if (entry.second == maxConfidence) {
-			result.push_back(entry.first);
-		}
-	}
+	for (auto [value, count] : _values)
+		if (count == maxConfidence)
+			result.push_back(value);
 	return result;
 }
 

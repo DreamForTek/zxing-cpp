@@ -18,14 +18,21 @@
 */
 
 #include "ZXConfig.h"
+#include "ZXContainerAlgorithms.h"
+#ifndef ZX_FAST_BIT_STORAGE
 #include "BitHacks.h"
+#endif
 
+#include <cassert>
 #include <cstdint>
 #include <iterator>
 #include <vector>
 #include <algorithm>
+#include <utility>
 
 namespace ZXing {
+
+class ByteArray;
 
 template <typename Iterator>
 struct Range {
@@ -35,9 +42,7 @@ struct Range {
 };
 
 /**
-* <p>A simple, fast array of bits, represented compactly by an array of ints internally.</p>
-*
-* @author Sean Owen
+* A simple, fast array of bits.
 */
 class BitArray
 {
@@ -60,9 +65,15 @@ public:
 #ifdef ZX_FAST_BIT_STORAGE
 	using Iterator = std::vector<uint8_t>::const_iterator;
 #else
-	class Iterator : public std::iterator<std::bidirectional_iterator_tag, bool, int, bool*, bool>
+	class Iterator
 	{
 	public:
+		using iterator_category = std::bidirectional_iterator_tag;
+		using value_type = bool;
+		using difference_type = int;
+		using pointer = bool*;
+		using reference = bool;
+
 		bool operator*() const { return (*_value & _mask) != 0; }
 
 		Iterator& operator++()
@@ -144,7 +155,7 @@ public:
 
 	int size() const noexcept {
 #ifdef ZX_FAST_BIT_STORAGE
-		return static_cast<int>(_bits.size());
+		return Size(_bits);
 #else
 		return _size;
 #endif
@@ -169,7 +180,7 @@ public:
 	// If you know exactly how may bits you are going to iterate
 	// and that you access bit in sequence, iterator is faster than get().
 	// However, be extremly careful since there is no check whatsoever.
-	// (Performance is the reason for the iterator to exist int the first place!)
+	// (Performance is the reason for the iterator to exist in the first place.)
 #ifdef ZX_FAST_BIT_STORAGE
 	Iterator iterAt(int i) const noexcept { return {_bits.cbegin() + i}; }
 	Iterator begin() const noexcept { return _bits.cbegin(); }
@@ -228,58 +239,15 @@ public:
 	*/
 	void set(int i) {
 #ifdef ZX_FAST_BIT_STORAGE
+#if 0
+		_bits[i] = 1;
+#else
 		_bits.at(i) = 1;
+#endif
 #else
 		_bits.at(i >> 5) |= 1 << (i & 0x1F);
 #endif
 	}
-
-#if 0 // deprecated / unused code
-	/**
-	* Flips bit i.
-	*
-	* @param i bit to set
-	*/
-	void flip(int i) {
-		_bits.at(i >> 5) ^= 1 << (i & 0x1F);
-	}
-
-	void flipAll() {
-		for (auto& i : _bits) {
-			i = ~i;
-		}
-	}
-
-	/**
-	* @param from first bit to check
-	* @return index of first bit that is set, starting from the given index, or size if none are set
-	*  at or beyond this given index
-	* @see #getNextUnset(int)
-	*/
-	int getNextSet(int from) const {
-		return getNextSet(iterAt(from)) - begin();
-	}
-
-	/**
-	* @param from index to start looking for unset bit
-	* @return index of next unset bit, or {@code size} if none are unset until the end
-	* @see #getNextSet(int)
-	*/
-	int getNextUnset(int from) const {
-		return getNextUnset(iterAt(from)) - begin();
-	}
-
-	/**
-	* Sets a range of bits.
-	*
-	* @param start start of range, inclusive.
-	* @param end end of range, exclusive
-	*/
-	void setRange(int start, int end);
-#endif
-
-	// TODO: this method is used in BitWrapperBinerizer but never linked?!?
-	void getSubArray(int offset, int length, BitArray& result) const;
 
 	/**
 	* Clears all bits (sets to false).
@@ -371,19 +339,11 @@ public:
 	void bitwiseXOR(const BitArray& other);
 
 	/**
-	*
-	* @param bitOffset first bit to start writing
-	* @param ouput array to write into. Bytes are written most-significant byte first. This is the opposite
-	*  of the internal representation, which is exposed by {@link #getBitArray()}
-	* @param numBytes how many bytes to write
+	* @param bitOffset first bit to extract
+	* @param numBytes how many bytes to extract (-1 == until the end, padded with '0')
+	* @return Bytes are written most-significant bit first.
 	*/
-	void toBytes(int bitOffset, uint8_t* output, int numBytes) const;
-
-	/**
-	* @return underlying array of ints. The first element holds the first 32 bits, and the least
-	*         significant bit is bit 0.
-	*/
-	//const std::vector<uint32_t>& bitArray() const { return _bits; }
+	ByteArray toBytes(int bitOffset = 0, int numBytes = -1) const;
 
 	friend bool operator==(const BitArray& a, const BitArray& b)
 	{
@@ -395,5 +355,24 @@ public:
 	}
 };
 
+template<typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+inline T& AppendBit(T& val, bool bit)
+{
+	return (val <<= 1) |= bit;
+}
+
+template <typename T = int, typename = std::enable_if_t<std::is_integral_v<T>>>
+T ToInt(const BitArray& bits, int pos = 0, int count = 8 * sizeof(T))
+{
+	assert(0 <= count && count <= 8 * (int)sizeof(T));
+
+	count = std::min(count, bits.size());
+	int res = 0;
+	auto it = bits.iterAt(pos);
+	for (int i = 0; i < count; ++i, ++it)
+		AppendBit(res, *it);
+
+	return res;
+}
 
 } // ZXing

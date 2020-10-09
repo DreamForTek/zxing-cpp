@@ -1,57 +1,23 @@
-cmake_minimum_required (VERSION 3.1.3)
-
-project (ZXingUnitTest)
-
-# Enable both reader and writer for testing
-set (ENABLE_ENCODERS ON CACHE INTERNAL "Include encoders" FORCE)
-set (ENABLE_DECODERS ON CACHE INTERNAL "include decoders" FORCE)
-
-add_definitions (-DZXING_BUILD_FOR_TEST)
-
-set (CMAKE_CXX_STANDARD 14)
-
-if (MSVC)
-    add_definitions (-DUNICODE -D_UNICODE)
-    set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /Oi /GS-")
-    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Oi /GS-")
-endif()
-
+cmake_minimum_required(VERSION 3.14)
 
 # Download and unpack googletest at configure time
-configure_file (CMakeLists.txt.in googletest-download/CMakeLists.txt)
-execute_process (COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
-if (result)
-  message (FATAL_ERROR "CMake step for googletest failed: ${result}")
-endif()
-execute_process (COMMAND ${CMAKE_COMMAND} --build .
-  RESULT_VARIABLE result
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/googletest-download )
-if (result)
-  message (FATAL_ERROR "Build step for googletest failed: ${result}")
-endif()
-
-# Prevent overriding the parent project's compiler/linker
-# settings on Windows
+include(FetchContent)
+#set(FETCHCONTENT_QUIET Off)
+FetchContent_Declare (googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.10.x)
+# Prevent overriding the parent project's compiler/linker settings on Windows
 set (gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable (googletest)
 
-# Add googletest directly to our build. This defines
-# the gtest and gtest_main targets.
-add_subdirectory (${CMAKE_BINARY_DIR}/googletest-src ${CMAKE_BINARY_DIR}/googletest-build)
-
-# Add ZXingCore dependency
-add_subdirectory (${CMAKE_CURRENT_SOURCE_DIR}/../../core ${CMAKE_BINARY_DIR}/ZXingCore)
-
+# don't install gtest stuff on "make install"
+set (INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 
 # Our executable
-add_executable (ZXingUnitTest
+add_executable (UnitTest
+    BarcodeFormatTest.cpp
     BitArrayUtility.h
     BitArrayUtility.cpp
-    BitMatrixUtility.h
-    BitMatrixUtility.cpp
-    ByteMatrixUtility.h
-    ByteMatrixUtility.cpp
     PseudoRandom.h
     BitHacksTest.cpp
     ReedSolomonTest.cpp
@@ -91,11 +57,8 @@ add_executable (ZXingUnitTest
     pdf417/PDF417WriterTest.cpp
 )
 
-target_include_directories (ZXingUnitTest
-    PRIVATE .
-)
+target_include_directories (UnitTest PRIVATE .)
 
-target_link_libraries (ZXingUnitTest
-    gtest_main
-    ZXingCore
-)
+target_link_libraries (UnitTest ZXing::ZXing gtest_main)
+
+add_test(NAME UnitTest COMMAND UnitTest)

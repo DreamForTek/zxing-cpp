@@ -27,26 +27,18 @@ std::string ToString(const BitArray& arr, char one, char zero)
 {
 	std::string result;
 	result.reserve(arr.size());
-	auto iter = arr.begin();
-	for (int i = 0; i < arr.size(); ++i, ++iter) {
-		result.push_back(*iter != 0 ? one : zero);
-	}
+	for (bool bit : arr)
+		result.push_back(bit ? one : zero);
+
 	return result;
 }
 
-BitArray ParseBitArray(const std::string& str)
+BitArray ParseBitArray(std::string_view str, char one)
 {
-	return ParseBitArray(str, 'X');
-}
-
-BitArray ParseBitArray(const std::string& str, char one)
-{
-	BitArray result((int)str.length());
-	auto iter = result.begin();
-	for (size_t x = 0; x < str.length(); ++x, ++iter) {
-		if (str[x] == one) {
-			result.set(static_cast<int>(x));
-		}
+	BitArray result(Size(str));
+	for (int i = 0; i < Size(str); ++i) {
+		if (str[i] == one)
+			result.set(i);
 	}
 	return result;
 }

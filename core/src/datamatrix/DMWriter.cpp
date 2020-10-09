@@ -22,13 +22,12 @@
 #include "DMECEncoder.h"
 #include "DMDefaultPlacement.h"
 #include "BitMatrix.h"
-#include "ByteMatrix.h"
 #include "ByteArray.h"
 #include "ZXStrConvWorkaround.h"
 
 #include <stdexcept>
 #include <string>
-#include <algorithm>
+#include <utility>
 
 namespace ZXing {
 namespace DataMatrix {
@@ -40,11 +39,11 @@ namespace DataMatrix {
 * @param symbolInfo The symbol info to encode.
 * @return The bit matrix generated.
 */
-static BitMatrix EncodeLowLevel(const ByteMatrix& placement, const SymbolInfo& symbolInfo) {
+static BitMatrix EncodeLowLevel(const BitMatrix& placement, const SymbolInfo& symbolInfo) {
 	int symbolWidth = symbolInfo.symbolDataWidth();
 	int symbolHeight = symbolInfo.symbolDataHeight();
 
-	ByteMatrix matrix(symbolInfo.symbolWidth(), symbolInfo.symbolHeight());
+	BitMatrix matrix(symbolInfo.symbolWidth(), symbolInfo.symbolHeight());
 	int matrixY = 0;
 	for (int y = 0; y < symbolHeight; y++) {
 		// Fill the top edge with alternate 0 / 1
@@ -84,8 +83,7 @@ static BitMatrix EncodeLowLevel(const ByteMatrix& placement, const SymbolInfo& s
 		}
 	}
 
-	// Zero is white in the bytematrix
-	return BitMatrix(matrix, 1);
+	return matrix;
 }
 
 Writer::Writer() :
@@ -106,7 +104,7 @@ Writer::encode(const std::wstring& contents, int width, int height) const
 
 	//1. step: Data encodation
 	auto encoded = HighLevelEncoder::Encode(contents, _shapeHint, _minWidth, _minHeight, _maxWidth, _maxHeight);
-	const SymbolInfo* symbolInfo = SymbolInfo::Lookup(static_cast<int>(encoded.size()), _shapeHint, _minWidth, _minHeight, _maxWidth, _maxHeight);
+	const SymbolInfo* symbolInfo = SymbolInfo::Lookup(Size(encoded), _shapeHint, _minWidth, _minHeight, _maxWidth, _maxHeight);
 	if (symbolInfo == nullptr) {
 		throw std::invalid_argument("Can't find a symbol arrangement that matches the message. Data codewords: " + std::to_string(encoded.size()));
 	}
@@ -115,7 +113,7 @@ Writer::encode(const std::wstring& contents, int width, int height) const
 	ECEncoder::EncodeECC200(encoded, *symbolInfo);
 
 	//3. step: Module placement in Matrix
-	ByteMatrix placement = DefaultPlacement::Place(encoded, symbolInfo->symbolDataWidth(), symbolInfo->symbolDataHeight());
+	BitMatrix placement = DefaultPlacement::Place(encoded, symbolInfo->symbolDataWidth(), symbolInfo->symbolDataHeight());
 
 	//4. step: low-level encoding
 	BitMatrix result = EncodeLowLevel(placement, *symbolInfo);

@@ -19,15 +19,14 @@
 #include "aztec/AZDecoder.h"
 #include "aztec/AZWriter.h"
 #include "DecoderResult.h"
-#include "DecodeStatus.h"
 #include "BitMatrix.h"
-#include "BitMatrixUtility.h"
 #include "PseudoRandom.h"
 #include "CharacterSet.h"
 #include "TextEncoder.h"
 #include "TextDecoder.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace testing {
 	namespace internal {
@@ -50,7 +49,7 @@ namespace {
 		ASSERT_EQ(aztec.layers, layers) << "Unexpected nr. of layers";
 
 		DecoderResult res =
-			Aztec::Decoder::Decode({aztec.matrix.copy(), {}, aztec.compact, aztec.codeWords, aztec.layers});
+			Aztec::Decoder::Decode({{aztec.matrix.copy(), {}}, aztec.compact, aztec.codeWords, aztec.layers});
 		ASSERT_EQ(res.isValid(), true);
 		EXPECT_EQ(data, res.text());
 
@@ -70,7 +69,7 @@ namespace {
 		y = random.next(0, matrix.height() - 1);
 		matrix.flip(x, y);
 
-		res = Aztec::Decoder::Decode({std::move(matrix), {}, aztec.compact, aztec.codeWords, aztec.layers});
+		res = Aztec::Decoder::Decode({{std::move(matrix), {}}, aztec.compact, aztec.codeWords, aztec.layers});
 		ASSERT_EQ(res.isValid(), true);
 		EXPECT_EQ(data, res.text());
 	}
@@ -92,7 +91,7 @@ namespace {
 		EXPECT_EQ(aztec.matrix, matrix);
 
 		std::wstring expectedData = TextDecoder::ToUnicode(textBytes, CharacterSet::ISO8859_1);
-		DecoderResult res = Aztec::Decoder::Decode({matrix.copy(), {}, aztec.compact, aztec.codeWords, aztec.layers});
+		DecoderResult res = Aztec::Decoder::Decode({{matrix.copy(), {}}, aztec.compact, aztec.codeWords, aztec.layers});
 		EXPECT_EQ(res.isValid(), true);
 		EXPECT_EQ(res.text(), expectedData);
 
@@ -109,7 +108,7 @@ namespace {
 				: matrix.height() - 1 - random.next(0, aztec.layers * 2 - 1);
 			matrix.flip(x, y);
 		}
-		res = Aztec::Decoder::Decode({std::move(matrix), {}, aztec.compact, aztec.codeWords, aztec.layers});
+		res = Aztec::Decoder::Decode({{std::move(matrix), {}}, aztec.compact, aztec.codeWords, aztec.layers});
 		EXPECT_EQ(res.isValid(), true);
 		EXPECT_EQ(res.text(), expectedData);
 	}
@@ -229,8 +228,7 @@ TEST(AZEncodeDecodeTest, AztecWriter)
 		
 	// Test AztecWriter defaults
 	std::wstring data = L"In ut magna vel mauris malesuada";
-	Aztec::Writer writer;
-	BitMatrix matrix = writer.encode(data, 0, 0);
+	BitMatrix matrix = Aztec::Writer().encode(data, 0, 0);
 	Aztec::EncodeResult aztec =
 		Aztec::Encoder::Encode(TextEncoder::FromUnicode(data, CharacterSet::ISO8859_1),
 							   Aztec::Encoder::DEFAULT_EC_PERCENT, Aztec::Encoder::DEFAULT_AZTEC_LAYERS);

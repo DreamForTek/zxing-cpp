@@ -1,11 +1,11 @@
-cmake_minimum_required (VERSION 3.1.3)
+cmake_minimum_required (VERSION 3.10)
 
-if (NOT DEFINED ENABLE_ENCODERS)
-    set (ENABLE_ENCODERS OFF)
+if (NOT DEFINED BUILD_WRITERS)
+    set (BUILD_WRITERS OFF)
 endif()
 
-if (NOT DEFINED ENABLE_DECODERS)
-    set (ENABLE_DECODERS ON)
+if (NOT DEFINED BUILD_READERS)
+    set (BUILD_READERS ON)
 endif()
 
 set (ZXING_CORE_DEFINES)
@@ -28,8 +28,6 @@ else()
         -Wall -Wextra -Wno-missing-braces)
 endif()
 
-set (CMAKE_CXX_STANDARD 14)
-
 
 ################# Source files
 
@@ -41,30 +39,45 @@ set (COMMON_FILES
     src/BitHacks.h
     src/BitMatrix.h
     src/BitMatrix.cpp
+    src/BitMatrixCursor.h
+    src/BitMatrixIO.h
+    src/BitMatrixIO.cpp
     src/ByteArray.h
+    src/ByteMatrix.h
     src/CharacterSet.h
     src/CharacterSetECI.h
     src/CharacterSetECI.cpp
+    src/ConcentricFinder.h
+    src/ConcentricFinder.cpp
     src/CustomData.h
+    src/Flags.h
     src/GenericGF.h
     src/GenericGF.cpp
     src/GenericGFPoly.h
     src/GenericGFPoly.cpp
+    src/GTIN.h
+    src/LogMatrix.h
+    src/Matrix.h
+    src/Pattern.h
+    src/Point.h
+    src/Quadrilateral.h
+    src/RegressionLine.h
+    src/Scope.h
     src/TextUtfEncoding.h
     src/TextUtfEncoding.cpp
+    src/TritMatrix.h
     src/ZXBigInteger.h
     src/ZXBigInteger.cpp
     src/ZXConfig.h
-    src/ZXFilesystem.h
     src/ZXNullable.h
-    src/ZXNumeric.h
     src/ZXContainerAlgorithms.h
     src/ZXStrConvWorkaround.h
     src/ZXTestSupport.h
 )
-if (ENABLE_DECODERS)
+if (BUILD_READERS)
     set (COMMON_FILES ${COMMON_FILES}
         src/BinaryBitmap.h
+        src/BinaryBitmap.cpp
         src/BitSource.h
         src/BitSource.cpp
         src/DecodeHints.h
@@ -104,7 +117,7 @@ if (ENABLE_DECODERS)
         src/WhiteRectDetector.cpp
     )
 endif()
-if (ENABLE_ENCODERS)
+if (BUILD_WRITERS)
     set (COMMON_FILES ${COMMON_FILES}
         src/ByteMatrix.h
         src/ReedSolomonEncoder.h
@@ -119,7 +132,7 @@ endif()
 
 set (AZTEC_FILES
 )
-if (ENABLE_DECODERS)
+if (BUILD_READERS)
     set (AZTEC_FILES ${AZTEC_FILES}
         src/aztec/AZDecoder.h
         src/aztec/AZDecoder.cpp
@@ -130,7 +143,7 @@ if (ENABLE_DECODERS)
         src/aztec/AZReader.cpp
     )
 endif()
-if (ENABLE_ENCODERS)
+if (BUILD_WRITERS)
     set (AZTEC_FILES ${AZTEC_FILES}
         src/aztec/AZEncodingState.h
         src/aztec/AZEncoder.h
@@ -147,7 +160,7 @@ endif()
 
 set (DATAMATRIX_FILES
 )
-if (ENABLE_DECODERS)
+if (BUILD_READERS)
     set (DATAMATRIX_FILES ${DATAMATRIX_FILES}
         src/datamatrix/DMBitMatrixParser.h
         src/datamatrix/DMBitMatrixParser.cpp
@@ -164,7 +177,7 @@ if (ENABLE_DECODERS)
         src/datamatrix/DMReader.cpp
     )
 endif()
-if (ENABLE_ENCODERS)
+if (BUILD_WRITERS)
     set (DATAMATRIX_FILES ${DATAMATRIX_FILES}
         src/datamatrix/DMECEncoder.h
         src/datamatrix/DMECEncoder.cpp
@@ -184,7 +197,7 @@ endif()
 
 set (MAXICODE_FILES
 )
-if (ENABLE_DECODERS)
+if (BUILD_READERS)
     set (MAXICODE_FILES ${MAXICODE_FILES}
         src/maxicode/MCBitMatrixParser.h
         src/maxicode/MCBitMatrixParser.cpp
@@ -202,7 +215,7 @@ set (ONED_FILES
     src/oned/ODCode128Patterns.h
     src/oned/ODCode128Patterns.cpp
 )
-if (ENABLE_DECODERS)
+if (BUILD_READERS)
     set (ONED_FILES ${ONED_FILES}
         src/oned/ODCodabarReader.h
         src/oned/ODCodabarReader.cpp
@@ -240,7 +253,7 @@ if (ENABLE_DECODERS)
         src/oned/ODUPCEReader.cpp
     )
 endif()
-if (ENABLE_ENCODERS)
+if (BUILD_WRITERS)
     set (ONED_FILES ${ONED_FILES}
         src/oned/ODCodabarWriter.h
         src/oned/ODCodabarWriter.cpp
@@ -268,7 +281,7 @@ endif()
 
 set (ONED_RSS_FILES
 )
-if (ENABLE_DECODERS)
+if (BUILD_READERS)
     set (ONED_RSS_FILES ${ONED_RSS_FILES}
         src/oned/rss/ODRSSDataCharacter.h
         src/oned/rss/ODRSSExpandedBinaryDecoder.h
@@ -289,7 +302,7 @@ endif()
 
 set (PDF417_FILES
 )
-if (ENABLE_DECODERS)
+if (BUILD_READERS)
     set (PDF417_FILES ${PDF417_FILES}
         src/pdf417/PDFBarcodeMetadata.h
         src/pdf417/PDFBarcodeValue.h
@@ -318,7 +331,7 @@ if (ENABLE_DECODERS)
         src/pdf417/PDFScanningDecoder.cpp
     )
 endif()
-if (ENABLE_ENCODERS)
+if (BUILD_WRITERS)
     set (PDF417_FILES ${PDF417_FILES}
         src/pdf417/PDFCompaction.h
         src/pdf417/PDFEncoder.h
@@ -339,36 +352,26 @@ set (QRCODE_FILES
     src/qrcode/QRVersion.h
     src/qrcode/QRVersion.cpp
 )
-if (ENABLE_DECODERS)
+if (BUILD_READERS)
     set (QRCODE_FILES ${QRCODE_FILES}
-        src/qrcode/QRAlignmentPattern.h
-        src/qrcode/QRAlignmentPattern.cpp
-        src/qrcode/QRAlignmentPatternFinder.h
-        src/qrcode/QRAlignmentPatternFinder.cpp
         src/qrcode/QRBitMatrixParser.h
         src/qrcode/QRBitMatrixParser.cpp
         src/qrcode/QRDataBlock.h
         src/qrcode/QRDataBlock.cpp
         src/qrcode/QRDataMask.h
-        src/qrcode/QRDataMask.cpp
         src/qrcode/QRDecoder.h
         src/qrcode/QRDecoder.cpp
         src/qrcode/QRDecoderMetadata.h
         src/qrcode/QRDetector.h
         src/qrcode/QRDetector.cpp
         src/qrcode/QRECB.h
-        src/qrcode/QRFinderPattern.h
-        src/qrcode/QRFinderPattern.cpp
-        src/qrcode/QRFinderPatternFinder.h
-        src/qrcode/QRFinderPatternFinder.cpp
-        src/qrcode/QRFinderPatternInfo.h
         src/qrcode/QRFormatInformation.h
         src/qrcode/QRFormatInformation.cpp
         src/qrcode/QRReader.h
         src/qrcode/QRReader.cpp
     )
 endif()
-if (ENABLE_ENCODERS)
+if (BUILD_WRITERS)
     set (QRCODE_FILES ${QRCODE_FILES}
         src/qrcode/QREncoder.h
         src/qrcode/QREncoder.cpp
@@ -389,7 +392,7 @@ set (TEXT_CODEC_FILES
     src/textcodec/KRHangulMapping.h
     src/textcodec/KRHangulMapping.cpp
 )
-if (ENABLE_DECODERS)
+if (BUILD_READERS)
     set (TEXT_CODEC_FILES ${TEXT_CODEC_FILES}
         src/textcodec/Big5TextDecoder.h
         src/textcodec/Big5TextDecoder.cpp
@@ -401,7 +404,7 @@ if (ENABLE_DECODERS)
         src/textcodec/KRTextDecoder.cpp
     )
 endif()
-if (ENABLE_ENCODERS)
+if (BUILD_WRITERS)
     set (TEXT_CODEC_FILES ${TEXT_CODEC_FILES}
         src/textcodec/Big5TextEncoder.h
         src/textcodec/Big5TextEncoder.cpp
@@ -424,9 +427,11 @@ source_group (Sources\\pdf417 FILES ${PDF417_FILES})
 source_group (Sources\\qrcode FILES ${QRCODE_FILES})
 source_group (Sources\\textcodec FILES ${TEXT_CODEC_FILES})
 
-find_package (Threads)
+set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+find_package(Threads REQUIRED)
 
-add_library (ZXingCore
+add_library (ZXing
     ${COMMON_FILES}
     ${AZTEC_FILES}
     ${DATAMATRIX_FILES}
@@ -438,12 +443,12 @@ add_library (ZXingCore
     ${TEXT_CODEC_FILES}
 )
 
-target_include_directories (ZXingCore
+target_include_directories (ZXing
     PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
     INTERFACE "$<INSTALL_INTERFACE:include>"
 )
 
-target_compile_options (ZXingCore
+target_compile_options (ZXing
     PUBLIC ${ZXING_CORE_DEFINES}
     PRIVATE ${ZXING_CORE_LOCAL_DEFINES}
 )
@@ -452,21 +457,32 @@ include (CheckCXXCompilerFlag)
 
 CHECK_CXX_COMPILER_FLAG ("-ffloat-store" COMPILER_NEEDS_FLOAT_STORE)
 if (COMPILER_NEEDS_FLOAT_STORE)
-    target_compile_options(ZXingCore PRIVATE
+    target_compile_options(ZXing PRIVATE
         -ffloat-store   # same floating point precision in all optimization levels
     )
 endif()
 
-target_link_libraries (ZXingCore PUBLIC ${CMAKE_THREAD_LIBS_INIT})
+# the lib needs a c++-17 compiler but can be used with a c++-11 compiler (see examples)
+target_compile_features(ZXing PRIVATE cxx_std_17 INTERFACE cxx_std_11)
 
-add_library(ZXing::Core ALIAS ZXingCore)
-set_target_properties(ZXingCore PROPERTIES EXPORT_NAME Core)
+target_link_libraries (ZXing PRIVATE Threads::Threads)
+
+add_library(ZXing::ZXing ALIAS ZXing)
+# add the old alias as well, to keep old clients compiling
+# note: this only affects client code that includes ZXing via sub_directory.
+#       for clients using the exported target, see ZXingConfig.cmake.in
+add_library(ZXing::Core ALIAS ZXing)
+
+set_target_properties(ZXing PROPERTIES EXPORT_NAME ZXing)
+if (PROJECT_VERSION)
+    set_target_properties(ZXing PROPERTIES VERSION ${PROJECT_VERSION})
+    set_target_properties(ZXing PROPERTIES SOVERSION ${PROJECT_VERSION_MAJOR})
+endif()
 
 include (GNUInstallDirs)
 
-# Once we can require cmake 1.13, then we can move this to ../CMakeLists.txt, see: https://gitlab.kitware.com/cmake/cmake/merge_requests/2152
 install (
-    TARGETS ZXingCore EXPORT ZXingTargets
+    TARGETS ZXing EXPORT ZXingTargets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}

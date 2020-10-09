@@ -4,8 +4,8 @@ if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
 
     project (ZXingGdiPlus)
 
-    set (ENABLE_ENCODERS OFF CACHE BOOL "Check to include encoders")
-    set (ENABLE_DECODERS ON CACHE BOOL "Check to include decoders")
+    set (BUILD_WRITERS OFF CACHE BOOL "Check to include encoders")
+    set (BUILD_READERS ON CACHE BOOL "Check to include decoders")
     set (LINK_CPP_STATICALLY OFF CACHE BOOL "MSVC only, check to link statically standard library (/MT and /MTd)")
 
     add_definitions (-DUNICODE -D_UNICODE)
@@ -16,23 +16,24 @@ if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
         set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MTd")
         set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
     endif()
-endif()
 
-if (NOT DEFINED ENABLE_ENCODERS)
-    set (ENABLE_ENCODERS OFF)
-endif()
+    if (NOT DEFINED BUILD_WRITERS)
+        set (BUILD_WRITERS OFF)
+    endif()
 
-if (NOT DEFINED ENABLE_DECODERS)
-    set (ENABLE_DECODERS ON)
-endif()
+    if (NOT DEFINED BUILD_READERS)
+        set (BUILD_READERS ON)
+    endif()
 
-add_subdirectory (${CMAKE_CURRENT_SOURCE_DIR}/../../core ${CMAKE_BINARY_DIR}/ZXingCore)
+    add_subdirectory (${CMAKE_CURRENT_SOURCE_DIR}/../../core ${CMAKE_BINARY_DIR}/ZXingCore)
     
+endif()
+
 set (LOCAL_COMMON_FILES
     GdiplusInit.h
     GdiplusInit.cpp
 )
-if (ENABLE_DECODERS)
+if (BUILD_READERS)
     set (DECODERS_FILES
         ImageReader.h
         ImageReader.cpp
@@ -40,19 +41,19 @@ if (ENABLE_DECODERS)
         BarcodeReader.cpp
     )
 endif()
-if (ENABLE_ENCODERS)
-	set (ENCODERS_FILES
-		ImageWriter.h
-		ImageWriter.cpp
+if (BUILD_WRITERS)
+    set (ENCODERS_FILES
+        ImageWriter.h
+        ImageWriter.cpp
         BarcodeGenerator.h
         BarcodeGenerator.cpp
-	)
+    )
 endif()
 
 source_group (Sources FILES
     ${LOCAL_COMMON_FILES}
-	${DECODERS_FILES}
-	${ENCODERS_FILES}
+    ${DECODERS_FILES}
+    ${ENCODERS_FILES}
 )
 
 add_library (ZXingGdiPlus
@@ -66,7 +67,7 @@ target_include_directories (ZXingGdiPlus
 )
 
 target_link_libraries (ZXingGdiPlus
-    PRIVATE ZXingCore gdiplus.lib
+    PRIVATE ZXing::ZXing gdiplus.lib
 )
 
 target_compile_options (ZXingGdiPlus

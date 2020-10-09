@@ -15,7 +15,6 @@
 * limitations under the License.
 */
 
-#include <iostream>
 #include <vector>
 
 #include "MultiFormatWriter.h"
@@ -30,7 +29,7 @@ using namespace std::literals;
 
 void savePng(const BitMatrix& matrix, BarcodeFormat format)
 {
-	auto bitmap = matrix.toByteMatrix();
+	auto bitmap = ToMatrix<uint8_t>(matrix);
 	stbi_write_png((ToString(format) + ".png"s).c_str(), bitmap.width(), bitmap.height(), 1, bitmap.data(), 0);
 }
 
@@ -38,10 +37,10 @@ int main()
 {
 	std::wstring text = L"http://www.google.com/";
 	for (auto format : {
-		BarcodeFormat::AZTEC,
-		BarcodeFormat::DATA_MATRIX,
-		BarcodeFormat::PDF_417,
-		BarcodeFormat::QR_CODE })
+		BarcodeFormat::Aztec,
+		BarcodeFormat::DataMatrix,
+		BarcodeFormat::PDF417,
+		BarcodeFormat::QRCode })
 	{
 		savePng(MultiFormatWriter(format).encode(text, 200, 200), format);
 	}
@@ -49,15 +48,15 @@ int main()
 	text = L"012345678901234567890123456789";
 	using FormatSpecs = std::vector<std::pair<BarcodeFormat, size_t>>;
 	for (const auto& [format, length] : FormatSpecs({
-		{BarcodeFormat::CODABAR, 0},
-		{BarcodeFormat::CODE_39, 0},
-		{BarcodeFormat::CODE_93, 0},
-		{BarcodeFormat::CODE_128, 0},
-		{BarcodeFormat::EAN_8, 7},
-		{BarcodeFormat::EAN_13, 12},
+		{BarcodeFormat::Codabar, 0},
+		{BarcodeFormat::Code39, 0},
+		{BarcodeFormat::Code93, 0},
+		{BarcodeFormat::Code128, 0},
+		{BarcodeFormat::EAN8, 7},
+		{BarcodeFormat::EAN13, 12},
 		{BarcodeFormat::ITF, 0},
-		{BarcodeFormat::UPC_A, 11},
-		{BarcodeFormat::UPC_E, 7} }))
+		{BarcodeFormat::UPCA, 11},
+		{BarcodeFormat::UPCE, 7} }))
 	{
 		auto input = length > 0 ? text.substr(0, length) : text;
 		savePng(MultiFormatWriter(format).encode(input, 100, 100), format);

@@ -138,7 +138,7 @@ static BitArray::Range
 FindGuardPattern(const BitArray& row, const Container& pattern)
 {
 	Container counters = {};
-	auto pat_sum = Accumulate(pattern, 0);
+	auto pat_sum = Reduce(pattern);
 
 	return RowReader::FindPattern(
 	    row.getNextSet(row.begin()), row.end(), counters,
@@ -189,7 +189,7 @@ static BitArray::Range DecodeEnd(const BitArray& row)
 
 	// Now recalculate the indices of where the 'endblock' starts & stops to accommodate
 	// the reversed nature of the search
-	auto rowSize = static_cast<int>(row.size());
+	auto rowSize = Size(row);
 	return {row.iterAt(rowSize - static_cast<int>(range.end - revRow.begin())),
 	        row.iterAt(rowSize - static_cast<int>(range.begin - revRow.begin()))};
 }
@@ -220,7 +220,7 @@ ITFReader::decodeRow(int rowNumber, const BitArray& row, std::unique_ptr<Decodin
 
 	// To avoid false positives with 2D barcodes (and other patterns), make
 	// an assumption that the decoded string must be a 'standard' length if it's short
-	int length = static_cast<int>(result.length());
+	int length = Size(result);
 	if (!_allowedLengths.empty() && !Contains(_allowedLengths, length)) {
 		int maxAllowedLength = *std::max_element(_allowedLengths.begin(), _allowedLengths.end());
 		if (length < maxAllowedLength)
@@ -230,6 +230,60 @@ ITFReader::decodeRow(int rowNumber, const BitArray& row, std::unique_ptr<Decodin
 	int xStart = static_cast<int>(startRange.begin - row.begin());
 	int xStop = static_cast<int>(endRange.end - row.begin() - 1);
 	return Result(result, rowNumber, xStart, xStop, BarcodeFormat::ITF);
+}
+
+constexpr auto START_PATTERN_ = FixedPattern<4, 4>{1, 1, 1, 1};
+constexpr auto STOP_PATTERN_1 = FixedPattern<3, 4>{2, 1, 1};
+constexpr auto STOP_PATTERN_2 = FixedPattern<3, 5>{3, 1, 1};
+
+Result ITFReader::decodePattern(int rowNumber, const PatternView& row, std::unique_ptr<DecodingState>&) const
+{
+	const int minCharCount = 6;
+	const int minQuiteZone = 10;
+
+	auto next = FindLeftGuard(row, 4 + minCharCount/2 + 3, START_PATTERN_, minQuiteZone);
+	if (!next.isValid())
+		return Result(DecodeStatus::NotFound);
+
+	std::string txt;
+	txt.reserve(20);
+
+	constexpr int weights[] = {1, 2, 4, 7, 0};
+	int xStart = next.pixelsInFront();
+	next = next.subView(4, 10);
+
+	while (next.index() < row.size() - (10 + 3)) {
+		const auto threshold = NarrowWideThreshold(next);
+		if (!threshold.isValid())
+			break;
+
+		BarAndSpace<int> digits, numWide;
+		for (int i = 0; i < 10; ++i) {
+			if (next[i] > threshold[i] * 2)
+				break;
+			numWide[i] += next[i] > threshold[i];
+			digits[i] += weights[i/2] * (next[i] > threshold[i]);
+		}
+
+		if (numWide.bar != 2 || numWide.space != 2)
+			break;
+
+		for (int i = 0; i < 2; ++i)
+			txt.push_back((char)('0' + (digits[i] == 11 ? 0 : digits[i])));
+
+		next.skipSymbol();
+	}
+
+	next = next.subView(0, 3);
+
+	if (Size(txt) < minCharCount)
+		return Result(DecodeStatus::NotFound);
+
+	if (!IsRightGuard(next, STOP_PATTERN_1, minQuiteZone) && !IsRightGuard(next, STOP_PATTERN_2, minQuiteZone))
+		return Result(DecodeStatus::NotFound);
+
+	int xStop = next.pixelsTillEnd();
+	return Result(txt, rowNumber, xStart, xStop, BarcodeFormat::ITF);
 }
 
 } // OneD

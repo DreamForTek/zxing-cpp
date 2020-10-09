@@ -30,6 +30,7 @@
 #include "DecodeHints.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace ZXing {
 namespace OneD {
@@ -40,45 +41,25 @@ Reader::Reader(const DecodeHints& hints) :
 {
 	_readers.reserve(8);
 
-	if (hints.hasNoFormat()) {
+	auto formats = hints.formats().empty() ? BarcodeFormat::Any : hints.formats();
+
+	if (formats.testFlags(BarcodeFormat::EAN13 | BarcodeFormat::UPCA | BarcodeFormat::EAN8 | BarcodeFormat::UPCE))
 		_readers.emplace_back(new MultiUPCEANReader(hints));
+
+	if (formats.testFlag(BarcodeFormat::Code39))
 		_readers.emplace_back(new Code39Reader(hints));
-		_readers.emplace_back(new CodabarReader(hints));
+	if (formats.testFlag(BarcodeFormat::Code93))
 		_readers.emplace_back(new Code93Reader());
+	if (formats.testFlag(BarcodeFormat::Code128))
 		_readers.emplace_back(new Code128Reader(hints));
+	if (formats.testFlag(BarcodeFormat::ITF))
 		_readers.emplace_back(new ITFReader(hints));
+	if (formats.testFlag(BarcodeFormat::Codabar))
+		_readers.emplace_back(new CodabarReader(hints));
+	if (formats.testFlag(BarcodeFormat::DataBar))
 		_readers.emplace_back(new RSS14Reader());
+	if (formats.testFlag(BarcodeFormat::DataBarExpanded))
 		_readers.emplace_back(new RSSExpandedReader());
-	}
-	else {
-		if (hints.hasFormat(BarcodeFormat::EAN_13) ||
-			hints.hasFormat(BarcodeFormat::UPC_A) ||
-			hints.hasFormat(BarcodeFormat::EAN_8) ||
-			hints.hasFormat(BarcodeFormat::UPC_E)) {
-			_readers.emplace_back(new MultiUPCEANReader(hints));
-		}
-		if (hints.hasFormat(BarcodeFormat::CODE_39)) {
-			_readers.emplace_back(new Code39Reader(hints));
-		}
-		if (hints.hasFormat(BarcodeFormat::CODE_93)) {
-			_readers.emplace_back(new Code93Reader());
-		}
-		if (hints.hasFormat(BarcodeFormat::CODE_128)) {
-			_readers.emplace_back(new Code128Reader(hints));
-		}
-		if (hints.hasFormat(BarcodeFormat::ITF)) {
-			_readers.emplace_back(new ITFReader(hints));
-		}
-		if (hints.hasFormat(BarcodeFormat::CODABAR)) {
-			_readers.emplace_back(new CodabarReader(hints));
-		}
-		if (hints.hasFormat(BarcodeFormat::RSS_14)) {
-			_readers.emplace_back(new RSS14Reader());
-		}
-		if (hints.hasFormat(BarcodeFormat::RSS_EXPANDED)) {
-			_readers.emplace_back(new RSSExpandedReader());
-		}
-	}
 }
 
 Reader::~Reader() = default;
@@ -105,28 +86,37 @@ DoDecode(const std::vector<std::unique_ptr<RowReader>>& readers, const BinaryBit
 	int width = image.width();
 	int height = image.height();
 
-	int middle = height >> 1;
-	int rowStep = std::max(1, height >> (tryHarder ? 8 : 5));
+	int middle = height / 2;
+	int rowStep = std::max(1, height / (tryHarder ? 256 : 32));
 	int maxLines = tryHarder ?
 		height :	// Look at the whole image, not just the center
 		15;			// 15 rows spaced 1/32 apart is roughly the middle half of the image
 
 	BitArray row(width);
-	for (int x = 0; x < maxLines; x++) {
+#ifdef ZX_USE_NEW_ROW_READERS
+	PatternRow bars;
+	bars.reserve(128); // e.g. EAN-13 has 96 bars
+#endif
+	for (int i = 0; i < maxLines; i++) {
 
 		// Scanning from the middle out. Determine which row we're looking at next:
-		int rowStepsAboveOrBelow = (x + 1) / 2;
-		bool isAbove = (x & 0x01) == 0; // i.e. is x even?
+		int rowStepsAboveOrBelow = (i + 1) / 2;
+		bool isAbove = (i & 0x01) == 0; // i.e. is x even?
 		int rowNumber = middle + rowStep * (isAbove ? rowStepsAboveOrBelow : -rowStepsAboveOrBelow);
 		if (rowNumber < 0 || rowNumber >= height) {
 			// Oops, if we run off the top or bottom, stop
 			break;
 		}
 
+#ifdef ZX_USE_NEW_ROW_READERS
+		image.getPatternRow(rowNumber, bars);
+		bool hasBitArray = false;
+#else
 		// Estimate black point for this row and load it:
 		if (!image.getBlackRow(rowNumber, row)) {
 			continue;
 		}
+#endif
 
 		// While we have the image data in a BitArray, it's fairly cheap to reverse it in place to
 		// handle decoding upside down barcodes.
@@ -140,21 +130,41 @@ DoDecode(const std::vector<std::unique_ptr<RowReader>>& readers, const BinaryBit
 			if (upsideDown) {
 				// reverse the row and continue
 				row.reverse();
+#ifdef ZX_USE_NEW_ROW_READERS
+				std::reverse(bars.begin(), bars.end());
+#endif
 			}
 			// Look for a barcode
 			for (size_t r = 0; r < readers.size(); ++r) {
-				Result result = readers[r]->decodeRow(rowNumber, row, decodingState[r]);
-				if (result.isValid()) {
-					// We found our barcode
-					if (upsideDown) {
-						// But it was upside down, so note that
-						result.metadata().put(ResultMetadata::ORIENTATION, 180);
-						// And remember to flip the result points horizontally.
-						auto points = result.resultPoints();
-						for (auto& p : points) {
-							p.set(width - p.x() - 1, p.y());
+#ifdef ZX_USE_NEW_ROW_READERS
+				Result result = readers[r]->decodePattern(rowNumber, bars, decodingState[r]);
+				if (result.status() == DecodeStatus::_internal) {
+					if (!std::exchange(hasBitArray, true)) {
+						row.clearBits();
+						bool set = false;
+						int pos = 0;
+						for(int w : bars) {
+							if (set)
+								for (int i = 0; i < w; ++i)
+									row.set(pos++);
+							else
+								pos += w;
+							set = !set;
 						}
-						result.setResultPoints(std::move(points));
+					}
+					result = readers[r]->decodeRow(rowNumber, row, decodingState[r]);
+				}
+#else
+				Result result = readers[r]->decodeRow(rowNumber, row, decodingState[r]);
+#endif
+				if (result.isValid()) {
+					if (upsideDown) {
+						// update position (flip horizontally).
+						auto points = result.position();
+						for (auto& p : points) {
+							p = {width - p.x - 1, p.y};
+						}
+						result.setPosition(std::move(points));
 					}
 					return result;
 				}
@@ -164,31 +174,27 @@ DoDecode(const std::vector<std::unique_ptr<RowReader>>& readers, const BinaryBit
 	return Result(DecodeStatus::NotFound);
 }
 
-// Note that we don't try rotation without the try harder flag, even if rotation was supported.
 Result
 Reader::decode(const BinaryBitmap& image) const
 {
 	Result result = DoDecode(_readers, image, _tryHarder);
-	if (result.isValid()) {
-		return result;
-	}
 
-	if (_tryRotate && image.canRotate()) {
+	if (!result.isValid() && _tryRotate && image.canRotate()) {
 		auto rotatedImage = image.rotated(270);
 		result = DoDecode(_readers, *rotatedImage, _tryHarder);
 		if (result.isValid()) {
-			// Record that we found it rotated 90 degrees CCW / 270 degrees CW
-			auto& metadata = result.metadata();
-			metadata.put(ResultMetadata::ORIENTATION, (270 + metadata.getInt(ResultMetadata::ORIENTATION)) % 360);
-			// Update result points
-			auto points = result.resultPoints();
+			// Update position
+			auto points = result.position();
 			int height = rotatedImage->height();
 			for (auto& p : points) {
-				p.set(height - p.y() - 1, p.x());
+				p = {height - p.y - 1, p.x};
 			}
-			result.setResultPoints(std::move(points));
+			result.setPosition(std::move(points));
 		}
 	}
+
+	result.metadata().put(ResultMetadata::ORIENTATION, result.orientation());
+
 	return result;
 }
 

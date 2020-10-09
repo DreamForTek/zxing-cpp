@@ -16,23 +16,14 @@
 */
 #include "datamatrix/DMWriter.h"
 #include "datamatrix/DMDecoder.h"
-#include "datamatrix/DMEncoderContext.h"
+#include "datamatrix/DMSymbolShape.h"
 #include "DecoderResult.h"
-#include "DecodeStatus.h"
-#include "BitMatrix.h"
-#include "BitMatrixUtility.h"
-#include "PseudoRandom.h"
-#include "ZXContainerAlgorithms.h"
+#include "BitMatrixIO.h"
 
-#include "fstream"
-
-namespace testing {
-	namespace internal {
-		inline bool operator==(const std::string& a, const std::wstring& b) {
-			return a.length() == b.length() && std::equal(a.begin(), a.end(), b.begin());
-		}
-	}
-}
+#include <algorithm>
+#ifndef NDEBUG
+#include <fstream>
+#endif
 
 #include "gtest/gtest.h"
 
@@ -42,23 +33,20 @@ namespace {
 
 	void TestEncodeDecode(const std::wstring& data, DataMatrix::SymbolShape shape = DataMatrix::SymbolShape::NONE)
 	{
-		DataMatrix::Writer writer;
-		writer.setMargin(0);
-		writer.setShapeHint(shape);
-		BitMatrix matrix = writer.encode(data, 0, 0);
+		BitMatrix matrix = DataMatrix::Writer().setMargin(0).setShapeHint(shape).encode(data, 0, 0);
 		ASSERT_EQ(matrix.empty(), false);
 
 		DecoderResult res = DataMatrix::Decoder::Decode(matrix);
 #ifndef NDEBUG
 		if (!res.isValid() || data != res.text())
-			Utility::WriteBitMatrixAsPBM(matrix, std::ofstream("failed-datamatrix.pbm"), 4);
+			SaveAsPBM(matrix, "failed-datamatrix.pbm", 4);
 #endif
 		ASSERT_EQ(res.isValid(), true) << "text size: " << data.size() << ", code size: " << matrix.height() << "x"
 									   << matrix.width() << ", shape: " << static_cast<int>(shape) << "\n"
-									   << (matrix.width() < 80 ? Utility::ToString(matrix) : std::string());
+									   << (matrix.width() < 80 ? ToString(matrix) : std::string());
 		EXPECT_EQ(data, res.text()) << "text size: " << data.size() << ", code size: " << matrix.height() << "x"
 									<< matrix.width() << ", shape: " << static_cast<int>(shape) << "\n"
-									<< (matrix.width() < 80 ? Utility::ToString(matrix) : std::string());
+									<< (matrix.width() < 80 ? ToString(matrix) : std::string());
 	}
 }
 
@@ -101,7 +89,7 @@ TEST(DMEncodeDecodeTest, EncodeDecodeSquare)
 		" erat pulvinar nisi, id elementum sapien dolor et diam.",
 	};
 
-	for (auto data : text)
+	for (auto& data : text)
 		TestEncodeDecode(data, DataMatrix::SymbolShape::SQUARE);
 }
 
@@ -116,7 +104,7 @@ TEST(DMEncodeDecodeTest, EncodeDecodeRectangle)
 	    L"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ",
 	};
 
-	for (auto data : text)
+	for (auto& data : text)
 		for (size_t len	= 1; len <= data.size(); ++len)
 			TestEncodeDecode(data.substr(0, len), DataMatrix::SymbolShape::RECTANGLE);
 }
@@ -130,7 +118,7 @@ TEST(DMEncodeDecodeTest, EDIFACTWithEOD)
 		L"<ABCDEFG><ABCDEFGK>",
 		L"*CH/GN1/022/00",
 	};
-	for (auto data : text)
+	for (auto& data : text)
 		for (auto shape : {SymbolShape::NONE, SymbolShape::SQUARE, SymbolShape::RECTANGLE})
 			TestEncodeDecode(data, shape);
 }

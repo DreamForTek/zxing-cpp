@@ -25,6 +25,7 @@
 #include "ZXStrConvWorkaround.h"
 
 #include <array>
+#include <cassert>
 #include <sstream>
 #include <iomanip>
 
@@ -33,10 +34,9 @@ namespace OneD {
 
 namespace UPCEANExtension5Support
 {
-	static int
-	ExtensionChecksum(const std::string& s)
+	int ExtensionChecksum(const std::string& s)
 	{
-		int length = static_cast<int>(s.length());
+		int length = Size(s);
 		int sum = 0;
 		for (int i = length - 2; i >= 0; i -= 2) {
 			sum += (int)s[i] - (int) '0';
@@ -49,8 +49,7 @@ namespace UPCEANExtension5Support
 		return sum % 10;
 	}
 
-	static std::string
-	ParseExtension5String(const std::string& raw)
+	std::string ParseExtension5String(const std::string& raw)
 	{
 		std::string currency;
 		switch (raw.front()) {
@@ -148,7 +147,7 @@ UPCEANExtensionSupport::DecodeRow(int rowNumber, const BitArray& row, BitArray::
 
 	int xStop = static_cast<int>(next.begin - row.begin() - 1);
 
-	Result result(resultString, rowNumber, xStart, xStop, BarcodeFormat::UPC_EAN_EXTENSION);
+	Result result(resultString, rowNumber, xStart, xStop, BarcodeFormat::Any);
 
 	if (resultString.size() == 2) {
 		result.metadata().put(ResultMetadata::ISSUE_NUMBER, std::stoi(resultString));

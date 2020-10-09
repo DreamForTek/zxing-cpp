@@ -19,6 +19,7 @@
 #include "rss/ODRSSReaderHelper.h"
 #include "rss/ODRSSPair.h"
 #include "BitArray.h"
+#include "GTIN.h"
 #include "Result.h"
 #include "DecodeHints.h"
 #include "ZXConfig.h"
@@ -60,14 +61,6 @@ struct RSS14DecodingState : public RowReader::DecodingState
 	std::list<RSS::Pair> possibleLeftPairs;
 	std::list<RSS::Pair> possibleRightPairs;
 };
-
-//private final List<Pair> possibleLeftPairs;
-//private final List<Pair> possibleRightPairs;
-//
-//public RSS14Reader() {
-//	possibleLeftPairs = new ArrayList<>();
-//	possibleRightPairs = new ArrayList<>();
-//}
 
 static BitArray::Range
 FindFinderPattern(const BitArray& row, bool rightFinderPattern, FinderCounters& counters)
@@ -117,185 +110,13 @@ ParseFoundFinderPattern(const BitArray& row, int rowNumber, bool right, BitArray
 			{ResultPoint(start, rowNumber), ResultPoint(end, rowNumber)}};
 }
 
-static bool
-AdjustOddEvenCounts(bool outsideChar, int numModules, std::array<int, 4>& oddCounts, std::array<int, 4>& evenCounts,
-	const std::array<float, 4>& oddRoundingErrors, const std::array<float, 4>& evenRoundingErrors)
-{
-	int oddSum = std::accumulate(oddCounts.begin(), oddCounts.end(), 0);
-	int evenSum = std::accumulate(evenCounts.begin(), evenCounts.end(), 0);
-	int mismatch = oddSum + evenSum - numModules;
-	bool oddParityBad = (oddSum & 0x01) == (outsideChar ? 1 : 0);
-	bool evenParityBad = (evenSum & 0x01) == 1;
-
-	bool incrementOdd = false;
-	bool decrementOdd = false;
-	bool incrementEven = false;
-	bool decrementEven = false;
-
-	if (outsideChar) {
-		if (oddSum > 12) {
-			decrementOdd = true;
-		}
-		else if (oddSum < 4) {
-			incrementOdd = true;
-		}
-		if (evenSum > 12) {
-			decrementEven = true;
-		}
-		else if (evenSum < 4) {
-			incrementEven = true;
-		}
-	}
-	else {
-		if (oddSum > 11) {
-			decrementOdd = true;
-		}
-		else if (oddSum < 5) {
-			incrementOdd = true;
-		}
-		if (evenSum > 10) {
-			decrementEven = true;
-		}
-		else if (evenSum < 4) {
-			incrementEven = true;
-		}
-	}
-
-	/*if (mismatch == 2) {
-	if (!(oddParityBad && evenParityBad)) {
-	throw ReaderException.getInstance();
-	}
-	decrementOdd = true;
-	decrementEven = true;
-	} else if (mismatch == -2) {
-	if (!(oddParityBad && evenParityBad)) {
-	throw ReaderException.getInstance();
-	}
-	incrementOdd = true;
-	incrementEven = true;
-	} else */
-	if (mismatch == 1) {
-		if (oddParityBad) {
-			if (evenParityBad) {
-				return false;
-			}
-			decrementOdd = true;
-		}
-		else {
-			if (!evenParityBad) {
-				return false;
-			}
-			decrementEven = true;
-		}
-	}
-	else if (mismatch == -1) {
-		if (oddParityBad) {
-			if (evenParityBad) {
-				return false;
-			}
-			incrementOdd = true;
-		}
-		else {
-			if (!evenParityBad) {
-				return false;
-			}
-			incrementEven = true;
-		}
-	}
-	else if (mismatch == 0) {
-		if (oddParityBad) {
-			if (!evenParityBad) {
-				return false;
-			}
-			// Both bad
-			if (oddSum < evenSum) {
-				incrementOdd = true;
-				decrementEven = true;
-			}
-			else {
-				decrementOdd = true;
-				incrementEven = true;
-			}
-		}
-		else {
-			if (evenParityBad) {
-				return false;
-			}
-			// Nothing to do!
-		}
-	}
-	else {
-		return false;
-	}
-
-	if (incrementOdd) {
-		if (decrementOdd) {
-			return false;
-		}
-		oddCounts[std::max_element(oddRoundingErrors.begin(), oddRoundingErrors.end()) - oddRoundingErrors.begin()] += 1;
-	}
-	if (decrementOdd) {
-		oddCounts[std::min_element(oddRoundingErrors.begin(), oddRoundingErrors.end()) - oddRoundingErrors.begin()] -= 1;
-	}
-	if (incrementEven) {
-		if (decrementEven) {
-			return false;
-		}
-		evenCounts[std::max_element(evenRoundingErrors.begin(), evenRoundingErrors.end()) - evenRoundingErrors.begin()] += 1;
-	}
-	if (decrementEven) {
-		evenCounts[std::min_element(evenRoundingErrors.begin(), evenRoundingErrors.end()) - evenRoundingErrors.begin()] -= 1;
-	}
-	return true;
-}
-
 static RSS::DataCharacter
 DecodeDataCharacter(const BitArray& row, const RSS::FinderPattern& pattern, bool outsideChar)
 {
-	std::array<int, 8> counters = {};
+	DataCounters oddCounts, evenCounts;
 
-	if (outsideChar) {
-		if (!RowReader::RecordPatternInReverse(row.begin(), row.iterAt(pattern.startPos()), counters))
-			return {};
-	}
-	else {
-		if (!RowReader::RecordPattern(row.iterAt(pattern.endPos()), row.end(), counters))
-			return {};
-		std::reverse(counters.begin(), counters.end());
-	}
-
-	int numModules = outsideChar ? 16 : 15;
-	float elementWidth = static_cast<float>(std::accumulate(counters.begin(), counters.end(), 0)) / static_cast<float>(numModules);
-
-	std::array<int, 4> oddCounts;
-	std::array<int, 4> evenCounts;
-	std::array<float, 4> oddRoundingErrors;
-	std::array<float, 4> evenRoundingErrors;
-
-	for (int i = 0; i < 8; i++) {
-		float value = (float)counters[i] / elementWidth;
-		int count = (int)(value + 0.5f); // Round
-		//TODO: C++17: count = std::clamp((int)(value + 0.5f), 1, 8);
-		if (count < 1) {
-			count = 1;
-		}
-		else if (count > 8) {
-			count = 8;
-		}
-		int offset = i / 2;
-		if ((i & 0x01) == 0) {
-			oddCounts[offset] = count;
-			oddRoundingErrors[offset] = value - count;
-		}
-		else {
-			evenCounts[offset] = count;
-			evenRoundingErrors[offset] = value - count;
-		}
-	}
-
-	if (!AdjustOddEvenCounts(outsideChar, numModules, oddCounts, evenCounts, oddRoundingErrors, evenRoundingErrors)) {
+	if (!ReaderHelper::ReadOddEvenElements(row, pattern, outsideChar ? 16 : 15, outsideChar, oddCounts, evenCounts))
 		return {};
-	}
 
 	auto calcChecksumPortion = [](const std::array<int, 4>& counts) {
 		int res = 0;
@@ -306,11 +127,11 @@ DecodeDataCharacter(const BitArray& row, const RSS::FinderPattern& pattern, bool
 	};
 
 	int checksumPortion = calcChecksumPortion(oddCounts) + 3 * calcChecksumPortion(evenCounts);
-	int oddSum = Accumulate(oddCounts, 0);
-	int evenSum = Accumulate(evenCounts, 0);
+	int oddSum = Reduce(oddCounts);
+	int evenSum = Reduce(evenCounts);
 
 	if (outsideChar) {
-		if ((oddSum & 0x01) != 0 || oddSum > 12 || oddSum < 4) {
+		if ((oddSum & 1) != 0 || oddSum > 12 || oddSum < 4) {
 			return {};
 		}
 		int group = (12 - oddSum) / 2;
@@ -323,7 +144,7 @@ DecodeDataCharacter(const BitArray& row, const RSS::FinderPattern& pattern, bool
 		return {vOdd * tEven + vEven + gSum, checksumPortion};
 	}
 	else {
-		if ((evenSum & 0x01) != 0 || evenSum > 10 || evenSum < 4) {
+		if ((evenSum & 1) != 0 || evenSum > 10 || evenSum < 4) {
 			return {};
 		}
 		int group = (10 - evenSum) / 2;
@@ -369,18 +190,12 @@ AddOrTally(std::list<RSS::Pair>& possiblePairs, const RSS::Pair& pair)
 			return;
 		}
 	}
-//	printf("found new pair\n"); fflush(stdout);
 	possiblePairs.push_back(pair);
 }
 
 static bool
 CheckChecksum(const RSS::Pair& leftPair, const RSS::Pair& rightPair)
 {
-	//int leftFPValue = leftPair.getFinderPattern().getValue();
-	//int rightFPValue = rightPair.getFinderPattern().getValue();
-	//if ((leftFPValue == 0 && rightFPValue == 8) ||
-	//    (leftFPValue == 8 && rightFPValue == 0)) {
-	//}
 	int checkValue = (leftPair.checksumPortion() + 16 * rightPair.checksumPortion()) % 79;
 	int targetCheckValue =
 		9 * leftPair.finderPattern().value() + rightPair.finderPattern().value();
@@ -399,21 +214,11 @@ ConstructResult(const RSS::Pair& leftPair, const RSS::Pair& rightPair)
 	int64_t symbolValue = 4537077 * static_cast<int64_t>(leftPair.value()) + rightPair.value();
 	std::wstringstream buffer;
 	buffer << std::setw(13) << std::setfill(L'0') << symbolValue;
-
-	int checkDigit = 0;
-	for (int i = 0; i < 13; i++) {
-		int digit = buffer.get() - '0';
-		checkDigit += (i & 0x01) == 0 ? 3 * digit : digit;
-	}
-	checkDigit = 10 - (checkDigit % 10);
-	if (checkDigit == 10) {
-		checkDigit = 0;
-	}
-	buffer.put((wchar_t)(checkDigit + '0'));
+	buffer.put(GTIN::ComputeCheckDigit(buffer.str()));
 
 	auto& leftPoints = leftPair.finderPattern().points();
 	auto& rightPoints = rightPair.finderPattern().points();
-	return Result(buffer.str(), { leftPoints[0], leftPoints[1], rightPoints[0], rightPoints[1] }, BarcodeFormat::RSS_14);
+	return Result(buffer.str(), { leftPoints[0], leftPoints[1], rightPoints[0], rightPoints[1] }, BarcodeFormat::DataBar);
 }
 
 Result
@@ -428,7 +233,6 @@ RSS14Reader::decodeRow(int rowNumber, const BitArray& row_, std::unique_ptr<Deco
 	AddOrTally(prevState->possibleLeftPairs, DecodePair(row, false, rowNumber));
 	row.reverse();
 	AddOrTally(prevState->possibleRightPairs, DecodePair(row, true, rowNumber));
-//	row.reverse();
 
 	// To be able to detect "stacked" RSS codes (split over multiple lines)
 	// we need to store the parts we found and try all possible left/right
@@ -446,6 +250,15 @@ RSS14Reader::decodeRow(int rowNumber, const BitArray& row_, std::unique_ptr<Deco
 		}
 	}
 	return Result(DecodeStatus::NotFound);
+}
+
+Result RSS14Reader::decodePattern(int, const PatternView& row, std::unique_ptr<RowReader::DecodingState>&) const
+{
+#ifdef ZX_USE_NEW_ROW_READERS
+	return FindFinderPattern<false>(row).isValid() ? Result(DecodeStatus::_internal) : Result(DecodeStatus::NotFound);
+#else
+	return Result(DecodeStatus::NotFound);
+#endif
 }
 
 } // OneD

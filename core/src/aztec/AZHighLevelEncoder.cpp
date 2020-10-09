@@ -22,8 +22,10 @@
 #include "ZXContainerAlgorithms.h"
 
 #include <array>
-#include <type_traits>
+#include <cstdint>
+#include <algorithm>
 #include <list>
+#include <vector>
 
 namespace ZXing {
 namespace Aztec {
@@ -97,7 +99,7 @@ static const std::array<std::array<int8_t, 256>, 5>& InitCharMap()
 		0x0b, 0x0c, 0x0d, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x40, 0x5c, 0x5e,
 		0x5f, 0x60, 0x7c, 0x7d, 0x7f,
 	};
-	for (uint8_t i = 0; i < Length(mixedTable); i++) {
+	for (uint8_t i = 0; i < Size(mixedTable); i++) {
 		charmap[MODE_MIXED][mixedTable[i]] = i;
 	}
 	const char punctTable[] = {
@@ -105,7 +107,7 @@ static const std::array<std::array<int8_t, 256>, 5>& InitCharMap()
 		'(', ')', '*', '+', ',', '-', '.', '/', ':', ';', '<', '=', '>', '?',
 		'[', ']', '{', '}'
 	};
-	for (uint8_t i = 0; i < Length(punctTable); i++) {
+	for (uint8_t i = 0; i < Size(punctTable); i++) {
 		if (punctTable[i] > 0) {
 			charmap[MODE_PUNCT][punctTable[i]] = i;
 		}
@@ -231,7 +233,7 @@ static bool IsBetterThanOrEqualTo(const EncodingState& state, const EncodingStat
 
 static BitArray ToBitArray(const EncodingState& state, const std::string& text)
 {
-	auto endState = EndBinaryShift(state, static_cast<int>(text.length()));
+	auto endState = EndBinaryShift(state, Size(text));
 	BitArray bits;
 	// Add each token to the result.
 	for (const Token& symbol : endState.tokens) {
@@ -361,9 +363,9 @@ HighLevelEncoder::Encode(const std::string& text)
 {
 	std::list<EncodingState> states;
 	states.push_back(EncodingState{ std::vector<Token>(), MODE_UPPER, 0, 0 });
-	for (int index = 0; index < (int)text.length(); index++) {
+	for (int index = 0; index < Size(text); index++) {
 		int pairCode;
-		int nextChar = index + 1 < (int)text.length() ? text[index + 1] : 0;
+		int nextChar = index + 1 < Size(text) ? text[index + 1] : 0;
 		switch (text[index]) {
 		case '\r':
 			pairCode = nextChar == '\n' ? 2 : 0;

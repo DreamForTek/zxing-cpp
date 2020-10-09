@@ -19,11 +19,13 @@
 #include "AZDetector.h"
 #include "AZDetectorResult.h"
 #include "AZDecoder.h"
+
+#include <memory>
+#include <utility>
+#include <vector>
 #include "Result.h"
-#include "BitMatrix.h"
 #include "BinaryBitmap.h"
 #include "DecoderResult.h"
-#include "DecodeHints.h"
 
 namespace ZXing {
 namespace Aztec {
@@ -38,20 +40,19 @@ Reader::decode(const BinaryBitmap& image) const
 
 	DetectorResult detectResult = Detector::Detect(*binImg, false);
 	DecoderResult decodeResult = DecodeStatus::NotFound;
-	std::vector<ResultPoint> points;
 	if (detectResult.isValid()) {
-		points = detectResult.points();
 		decodeResult = Decoder::Decode(detectResult);
 	}
+
+	//TODO: don't start detection all over again, just to swap 2 corner points
 	if (!decodeResult.isValid()) {
 		detectResult = Detector::Detect(*binImg, true);
 		if (detectResult.isValid()) {
-			points = detectResult.points();
 			decodeResult = Decoder::Decode(detectResult);
 		}
 	}
 
-	return Result(std::move(decodeResult), std::move(points), BarcodeFormat::AZTEC);
+	return Result(std::move(decodeResult), std::move(detectResult).position(), BarcodeFormat::Aztec);
 }
 
 } // Aztec

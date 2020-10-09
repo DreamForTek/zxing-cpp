@@ -17,11 +17,10 @@
 #include "gtest/gtest.h"
 #include "aztec/AZDetector.h"
 #include "aztec/AZDetectorResult.h"
-#include "BitMatrix.h"
-#include "DecodeStatus.h"
-#include "BitMatrixUtility.h"
+#include "BitMatrixIO.h"
 #include "PseudoRandom.h"
 
+#include <string_view>
 #include <vector>
 
 using namespace ZXing;
@@ -54,16 +53,16 @@ namespace {
 	}
 
 	// Test that we can tolerate errors in the parameter locator bits
-	void TestErrorInParameterLocator(const std::string& data, int nbLayers, bool isCompact, const BitMatrix &matrix_)
+	void TestErrorInParameterLocator(std::string_view data, int nbLayers, bool isCompact, const BitMatrix &matrix_)
 	{
-		PseudoRandom random(std::hash<std::string>()(data));
+		PseudoRandom random(std::hash<std::string_view>()(data));
 		auto orientationPoints = GetOrientationPoints(matrix_, isCompact);
 		for (bool isMirror : { false, true }) {
 			BitMatrix matrix = matrix_.copy();
 			for (int i = 0; i < 4; ++i) {
 				// Systematically try every possible 1- and 2-bit error.
-				for (int error1 = 0; error1 < (int)orientationPoints.size(); error1++) {
-					for (int error2 = error1; error2 < (int)orientationPoints.size(); error2++) {
+				for (int error1 = 0; error1 < Size(orientationPoints); error1++) {
+					for (int error2 = error1; error2 < Size(orientationPoints); error2++) {
 						BitMatrix copy = matrix.copy();
 						if (isMirror) {
 							copy.mirror();
@@ -106,7 +105,7 @@ TEST(AZDetectorTest, ErrorInParameterLocatorZeroZero)
 {
 	// Layers=1, CodeWords=1.  So the parameter info and its Reed-Solomon info
 	// will be completely zero!
-	TestErrorInParameterLocator("X", 1, true, Utility::ParseBitMatrix(
+	TestErrorInParameterLocator("X", 1, true, ParseBitMatrix(
 		"    X X X X X X X   X X X X X \n"
 		"X X X X   X     X X         X \n"
 		"    X X                 X   X \n"
@@ -128,7 +127,7 @@ TEST(AZDetectorTest, ErrorInParameterLocatorZeroZero)
 
 TEST(AZDetectorTest, ErrorInParameterLocatorCompact)
 {
-	TestErrorInParameterLocator("This is an example Aztec symbol for Wikipedia.", 3, true, Utility::ParseBitMatrix(
+	TestErrorInParameterLocator("This is an example Aztec symbol for Wikipedia.", 3, true, ParseBitMatrix(
 		"X     X X       X     X X     X     X         \n"
 		"X         X     X X     X   X X   X X       X \n"
 		"X X   X X X X X   X X X                 X     \n"
@@ -159,7 +158,7 @@ TEST(AZDetectorTest, ErrorInParameterLocatorCompact)
 TEST(AZDetectorTest, ErrorInParameterLocatorNotCompact)
 {
 	std::string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYabcdefghijklmnopqrstuvwxyz";
-	TestErrorInParameterLocator(alphabet + alphabet + alphabet, 6, false, Utility::ParseBitMatrix(
+	TestErrorInParameterLocator(alphabet + alphabet + alphabet, 6, false, ParseBitMatrix(
 		"    X   X     X     X     X   X X X X   X   X   X     X X     X X       X X X X   \n"
 		"  X         X   X         X X X X X   X   X X X   X   X X X X X   X X X       X   \n"
 		"    X   X       X X X X X   X X X X   X X   X X X X X   X X X     X   X X X   X   \n"

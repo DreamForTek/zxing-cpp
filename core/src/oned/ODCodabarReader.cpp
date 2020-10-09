@@ -1,6 +1,7 @@
 /*
 * Copyright 2016 Nu-book Inc.
 * Copyright 2016 ZXing authors
+* Copyright 2020 Axel Waggershauser
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -22,9 +23,11 @@
 #include "ZXContainerAlgorithms.h"
 
 #include <array>
+#include <limits>
+#include <string>
+#include <vector>
 
 namespace ZXing {
-
 namespace OneD {
 
 // These values are critical for determining how permissive the decoding
@@ -35,16 +38,14 @@ static const float PADDING = 1.5f;
 
 static const char ALPHABET[] = "0123456789-$:/.+ABCD";
 
-/**
-* These represent the encodings of characters, as patterns of wide and narrow bars. The 7 least-significant bits of
-* each int correspond to the pattern of wide and narrow, with 1s representing "wide" and 0s representing narrow.
-*/
+// These represent the encodings of characters, as patterns of wide and narrow bars. The 7 least-significant bits of
+// each int correspond to the pattern of wide and narrow, with 1s representing wide and 0s representing narrow.
 static const int CHARACTER_ENCODINGS[] = {
-	0x003, 0x006, 0x009, 0x060, 0x012, 0x042, 0x021, 0x024, 0x030, 0x048, // 0-9
-	0x00c, 0x018, 0x045, 0x051, 0x054, 0x015, 0x01A, 0x029, 0x00B, 0x00E, // -$:/.+ABCD
+	0x03, 0x06, 0x09, 0x60, 0x12, 0x42, 0x21, 0x24, 0x30, 0x48, // 0-9
+	0x0c, 0x18, 0x45, 0x51, 0x54, 0x15, 0x1A, 0x29, 0x0B, 0x0E, // -$:/.+ABCD
 };
 
-static_assert(Length(ALPHABET) - 1 == Length(CHARACTER_ENCODINGS), "table size mismatch");
+static_assert(Size(ALPHABET) - 1 == Size(CHARACTER_ENCODINGS), "table size mismatch");
 
 // minimal number of characters that should be present (inclusing start and stop characters)
 // under normal circumstances this should be set to 3, but can be set higher
@@ -87,7 +88,7 @@ InitCounters(const BitArray& row, std::vector<int>& counters)
 static int
 ToNarrowWidePattern(const std::vector<int>& counters, int position)
 {
-	int counterLength = static_cast<int>(counters.size());
+	int counterLength = Size(counters);
 	int end = position + 7;
 	if (end >= counterLength) {
 		return -1;
@@ -135,7 +136,7 @@ ToNarrowWidePattern(const std::vector<int>& counters, int position)
 static int
 FindStartPattern(const std::vector<int>& counters)
 {
-	int counterLength = static_cast<int>(counters.size());
+	int counterLength = Size(counters);
 	for (int i = 1; i < counterLength; i += 2) {
 		int charOffset = ToNarrowWidePattern(counters, i);
 		if (charOffset >= 0 && IndexOf(STARTEND_ENCODING, ALPHABET[charOffset]) >= 0) {
@@ -231,7 +232,7 @@ CodabarReader::decodeRow(int rowNumber, const BitArray& row, std::unique_ptr<Dec
 	std::vector<int> charOffsets;
 	charOffsets.reserve(20);
 	do {
-		int charOffset = ToNarrowWidePattern(counters, nextStart);
+		int charOffset = OneD::ToNarrowWidePattern(counters, nextStart);
 		if (charOffset < 0) {
 			return Result(DecodeStatus::NotFound);
 		}
@@ -244,7 +245,7 @@ CodabarReader::decodeRow(int rowNumber, const BitArray& row, std::unique_ptr<Dec
 		if (charOffsets.size() > 1 && IndexOf(STARTEND_ENCODING, ALPHABET[charOffset]) >= 0) {
 			break;
 		}
-	} while (nextStart < static_cast<int>(counters.size())); // no fixed end pattern so keep on reading while data is available
+	} while (nextStart < Size(counters)); // no fixed end pattern so keep on reading while data is available
 
 	// Look for whitespace after pattern:
 	int trailingWhitespace = counters[nextStart - 1];
@@ -256,7 +257,7 @@ CodabarReader::decodeRow(int rowNumber, const BitArray& row, std::unique_ptr<Dec
 	// We need to see whitespace equal to 50% of the last pattern size,
 	// otherwise this is probably a false positive. The exception is if we are
 	// at the end of the row. (I.e. the barcode barely fits.)
-	if (nextStart < static_cast<int>(counters.size()) && trailingWhitespace < lastPatternSize / 2) {
+	if (nextStart < Size(counters) && trailingWhitespace < lastPatternSize / 2) {
 		return Result(DecodeStatus::NotFound);
 	}
 
@@ -279,7 +280,7 @@ CodabarReader::decodeRow(int rowNumber, const BitArray& row, std::unique_ptr<Dec
 	}
 
 	// remove stop/start characters character and check if a long enough string is contained
-	if (static_cast<int>(decodeRowResult.length()) <= MIN_CHARACTER_LENGTH) {
+	if (Size(decodeRowResult) <= MIN_CHARACTER_LENGTH) {
 		// Almost surely a false positive ( start + stop + at least 1 character)
 		return Result(DecodeStatus::NotFound);
 	}
@@ -297,7 +298,68 @@ CodabarReader::decodeRow(int rowNumber, const BitArray& row, std::unique_ptr<Dec
 		runningCount += counters[i];
 	}
 	int xStop = runningCount;
-	return Result(decodeRowResult, rowNumber, xStart, xStop, BarcodeFormat::CODABAR);
+	return Result(decodeRowResult, rowNumber, xStart, xStop, BarcodeFormat::Codabar);
+}
+
+// each character has 4 bars and 3 spaces
+constexpr int CHAR_LEN = 7;
+// quite zone is half the width of a character symbol
+constexpr float QUITE_ZONE_SCALE = 0.5f;
+
+// official start and stop symbols are "ABCD"
+// some codabar generator allow the codabar string to be closed by every
+// character. This will cause lots of false positives!
+
+inline bool IsLeftGuard(const PatternView& view, int spaceInPixel)
+{
+	return spaceInPixel > view.sum() * QUITE_ZONE_SCALE &&
+		   Contains({0x1A, 0x29, 0x0B, 0x0E}, RowReader::NarrowWideBitPattern(view));
+}
+
+Result
+CodabarReader::decodePattern(int rowNumber, const PatternView& row, std::unique_ptr<DecodingState>&) const
+{
+	// minimal number of characters that must be present (including start, stop and checksum characters)
+	// absolute minimum would be 2 (meaning 0 'content'). everything below 4 produces too many false
+	// positives.
+	const int minCharCount = 4;
+	auto isStartOrStopSymbol = [](char c) { return 'A' <= c && c <= 'D'; };
+
+	auto next = FindLeftGuard<CHAR_LEN>(row, minCharCount * CHAR_LEN, IsLeftGuard);
+	if (!next.isValid())
+		return Result(DecodeStatus::NotFound);
+
+	int xStart = next.pixelsInFront();
+	int maxInterCharacterSpace = next.sum() / 2; // spec actually says 1 narrow space, width/2 is about 4
+
+	std::string txt;
+	txt.reserve(20);
+	txt += DecodeNarrowWidePattern(next, CHARACTER_ENCODINGS, ALPHABET); // read off the start pattern
+
+	if (!isStartOrStopSymbol(txt.back()))
+		return Result(DecodeStatus::NotFound);
+
+	do {
+		// check remaining input width and inter-character space
+		if (!next.skipSymbol() || !next.skipSingle(maxInterCharacterSpace))
+			return Result(DecodeStatus::NotFound);
+
+		txt += DecodeNarrowWidePattern(next, CHARACTER_ENCODINGS, ALPHABET);
+		if (txt.back() < 0)
+			return Result(DecodeStatus::NotFound);
+	} while (!isStartOrStopSymbol(txt.back()));
+
+	// next now points to the last decoded symbol
+	// check txt length and whitespace after the last char. See also FindStartPattern.
+	if (Size(txt) < minCharCount || !next.hasQuiteZoneAfter(QUITE_ZONE_SCALE))
+		return Result(DecodeStatus::NotFound);
+
+	// remove stop/start characters
+	if (!_returnStartEnd)
+		txt = txt.substr(1, txt.size() - 2);
+
+	int xStop = next.pixelsTillEnd();
+	return Result(txt, rowNumber, xStart, xStop, BarcodeFormat::Codabar);
 }
 
 } // OneD

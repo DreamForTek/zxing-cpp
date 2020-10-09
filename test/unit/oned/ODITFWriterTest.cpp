@@ -15,9 +15,10 @@
 * limitations under the License.
 */
 #include "gtest/gtest.h"
-#include "BitMatrix.h"
-#include "BitMatrixUtility.h"
+#include "BitMatrixIO.h"
 #include "oned/ODITFWriter.h"
+
+#include <stdexcept>
 
 using namespace ZXing;
 using namespace ZXing::OneD;
@@ -25,7 +26,7 @@ using namespace ZXing::OneD;
 namespace {
 	std::string Encode(const std::wstring& input)
 	{
-		auto result = Utility::ToString(ITFWriter().encode(input, 0, 0), '1', '0', false);
+		auto result = ToString(ITFWriter().encode(input, 0, 0), '1', '0', false);
 		return result.substr(0, result.size() - 1);	// remove the \n at the end
 	}
 }

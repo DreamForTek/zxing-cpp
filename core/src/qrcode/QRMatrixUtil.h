@@ -16,10 +16,11 @@
 * limitations under the License.
 */
 
+#include "TritMatrix.h"
+
 namespace ZXing {
 
 class BitArray;
-class ByteMatrix;
 
 namespace QRCode {
 
@@ -31,7 +32,7 @@ class MatrixUtil
 public:
 	static const int NUM_MASK_PATTERNS = 8;
 
-	static void BuildMatrix(const BitArray& dataBits, ErrorCorrectionLevel ecLevel, const Version& version, int maskPattern, ByteMatrix& matrix);
+	static void BuildMatrix(const BitArray& dataBits, ErrorCorrectionLevel ecLevel, const Version& version, int maskPattern, TritMatrix& matrix);
 };
 
 } // QRCode

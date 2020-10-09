@@ -15,11 +15,11 @@
 * limitations under the License.
 */
 #include "gtest/gtest.h"
-#include "ByteMatrix.h"
-#include "ByteMatrixUtility.h"
+#include "BitMatrixIO.h"
 #include "ByteArray.h"
 #include "datamatrix/DMDefaultPlacement.h"
 
+#include <algorithm>
 #include <sstream>
 #include <iterator>
 
@@ -55,5 +55,5 @@ TEST(DMPlacementTest, Placement)
         "100010010111\n"
         "011101011010\n"
         "001011001010\n";
-    EXPECT_EQ(expected, Utility::ToString(matrix, '1', '0', ' ', false));
+    EXPECT_EQ(expected, ToString(matrix, '1', '0', false));
   }

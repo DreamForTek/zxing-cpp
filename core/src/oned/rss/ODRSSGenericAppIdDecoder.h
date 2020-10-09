@@ -16,7 +16,6 @@
 * limitations under the License.
 */
 
-#include <sstream>
 #include <string>
 
 namespace ZXing {
@@ -34,7 +33,6 @@ namespace RSS {
 class GenericAppIdDecoder
 {
 public:
-	static int ExtractNumeric(const BitArray& bits, int pos, int count);
 	static DecodeStatus DecodeGeneralPurposeField(const BitArray& bits, int pos, std::string& result);
 	static DecodeStatus DecodeAllCodes(const BitArray& bits, int initialPosition, std::string& result);
 };

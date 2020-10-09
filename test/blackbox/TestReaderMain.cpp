@@ -27,12 +27,20 @@
 #include "ZXContainerAlgorithms.h"
 #include "ZXFilesystem.h"
 
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <fstream>
 #include <set>
 
 using namespace ZXing;
 using namespace ZXing::Test;
+
+int getEnv(const char* name, int fallback = 0)
+{
+	auto var = getenv(name);
+	return var ? atoi(var) : fallback;
+}
 
 int main(int argc, char** argv)
 {
@@ -44,14 +52,14 @@ int main(int argc, char** argv)
 	fs::path pathPrefix = argv[1];
 
 	if (Contains({".png", ".jpg", ".pgm", ".gif"}, pathPrefix.extension())) {
-		auto hints = DecodeHints().setTryHarder(true).setTryRotate(true);
-//		hints.setPossibleFormats(BarcodeFormatFromString("QR_CODE"));
+		auto hints = DecodeHints().setTryHarder(!getEnv("FAST", false)).setTryRotate(true).setIsPure(getEnv("IS_PURE"));
+		if (getenv("FORMATS"))
+			hints.setFormats(BarcodeFormatsFromString(getenv("FORMATS")));
 		MultiFormatReader reader(hints);
-		bool isPure = getenv("IS_PURE");
-		int rotation = getenv("ROTATION") ? atoi(getenv("ROTATION")) : 0;
+		int rotation = getEnv("ROTATION");
 
 		for (int i = 1; i < argc; ++i) {
-			Result result = reader.read(*ImageLoader::load(argv[i], isPure).rotated(rotation));
+			Result result = reader.read(*ImageLoader::load(argv[i]).rotated(rotation));
 			std::cout << argv[i] << ": ";
 			if (result.isValid())
 				std::cout << ToString(result.format()) << ": " << TextUtfEncoding::ToUtf8(result.text()) << " " << metadataToUtf8(result) << "\n";

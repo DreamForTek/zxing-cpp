@@ -18,15 +18,16 @@
 #include "aztec/AZDecoder.h"
 #include "aztec/AZDetectorResult.h"
 #include "DecoderResult.h"
-#include "BitMatrix.h"
+#include "BitMatrixIO.h"
 #include "DecodeStatus.h"
-#include "BitMatrixUtility.h"
+
+#include <utility>
 
 using namespace ZXing;
 
 TEST(AZDecoderTest, AztecResult)
 {
-	auto bits = Utility::ParseBitMatrix(
+	auto bits = ParseBitMatrix(
 		"X X X X X     X X X       X X X     X X X     \n"
 		"X X X     X X X     X X X X     X X X     X X \n"
 		"  X   X X       X   X   X X X X     X     X X \n"
@@ -52,7 +53,7 @@ TEST(AZDecoderTest, AztecResult)
 		"    X X X     X X X       X X X     X X X X   \n"
 		, 'X', true);
 
-	DecoderResult result = Aztec::Decoder::Decode({std::move(bits), {}, false, 30, 2});
+	DecoderResult result = Aztec::Decoder::Decode({{std::move(bits), {}}, false, 30, 2});
 	EXPECT_EQ(result.isValid(), true);
 	EXPECT_EQ(result.text(), L"88888TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT");
 	EXPECT_EQ(result.rawBytes(), ByteArray({
@@ -64,7 +65,7 @@ TEST(AZDecoderTest, AztecResult)
 
 TEST(AZDecoderTest, DecodeTooManyErrors)
 {
-	auto bits = Utility::ParseBitMatrix(
+	auto bits = ParseBitMatrix(
 		"X X . X . . . X X . . . X . . X X X . X . X X X X X . \n"
 		"X X . . X X . . . . . X X . . . X X . . . X . X . . X \n"
 		"X . . . X X . . X X X . X X . X X X X . X X . . X . . \n"
@@ -94,13 +95,13 @@ TEST(AZDecoderTest, DecodeTooManyErrors)
 		"X X . X . X . . . X . X . . . . X X . X . . X X . . . \n"
 		, 'X', true);
 
-	DecoderResult result = Aztec::Decoder::Decode({std::move(bits), {}, true, 16, 4});
+	DecoderResult result = Aztec::Decoder::Decode({{std::move(bits), {}}, true, 16, 4});
 	EXPECT_EQ(result.errorCode(), DecodeStatus::FormatError);
 }
 
 TEST(AZDecoderTest, DecodeTooManyErrors2)
 {
-	auto bits = Utility::ParseBitMatrix(
+	auto bits = ParseBitMatrix(
 		". X X . . X . X X . . . X . . X X X . . . X X . X X . \n"
 		"X X . X X . . X . . . X X . . . X X . X X X . X . X X \n"
 		". . . . X . . . X X X . X X . X X X X . X X . . X . . \n"
@@ -130,6 +131,6 @@ TEST(AZDecoderTest, DecodeTooManyErrors2)
 		"X X . . . X X . . X . X . . . . X X . X . . X . X . X \n"
 		, 'X', true);
 
-	DecoderResult result = Aztec::Decoder::Decode({std::move(bits), {}, true, 16, 4});
+	DecoderResult result = Aztec::Decoder::Decode({{std::move(bits), {}}, true, 16, 4});
 	EXPECT_EQ(result.errorCode(), DecodeStatus::FormatError);
 }

@@ -19,7 +19,7 @@ add_definitions (-DUNICODE -D_UNICODE)
 
 if (MSVC)
     add_definitions (
-        -DNOMINMAX
+        -DNOMINMAX -wd4996
     )
 endif()
 
@@ -43,7 +43,7 @@ set (OUTPUT_FILE_BASE_NAME "ZXing")
 add_library (ZXingWinRT SHARED ${HEADER_FILES} ${SOURCE_FILES})
 
 target_link_libraries (ZXingWinRT
-    PRIVATE ZXingCore
+    PRIVATE ZXing::ZXing
 )
 
 target_compile_options (ZXingWinRT PRIVATE
@@ -57,7 +57,7 @@ set_target_properties (ZXingWinRT PROPERTIES
     OUTPUT_NAME ${OUTPUT_FILE_BASE_NAME}
 )
 
-set_target_properties (ZXingWinRT ZXingCore PROPERTIES
+set_target_properties (ZXingWinRT ZXing PROPERTIES
     VS_WINDOWS_TARGET_PLATFORM_MIN_VERSION "10.0.10240.0"
 )
 

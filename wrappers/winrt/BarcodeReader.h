@@ -14,7 +14,10 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+
 #include "BarcodeFormat.h"
+
+#include <memory>
 
 namespace ZXing {
 
@@ -34,8 +37,7 @@ public enum class BarcodeType : int {
 	RSS_14,
 	RSS_EXPANDED,
 	UPC_A,
-	UPC_E,
-	UPC_EAN_EXTENSION
+	UPC_E
 };
 
 class MultiFormatReader;

@@ -1,63 +1,28 @@
-cmake_minimum_required (VERSION 3.1.3)
+#show that it is possible to use the library (in its simples form) with a c++-11 compiler
+set (CMAKE_CXX_STANDARD 11)
 
-project (ZXingExamples)
+if (BUILD_READERS)
+    add_executable (ZXingReader ZXingReader.cpp)
 
-set (ENABLE_ENCODERS ON CACHE BOOL "Check to include encoders")
-set (ENABLE_DECODERS ON CACHE BOOL "Check to include decoders")
+    target_include_directories (ZXingReader PRIVATE ../thirdparty/stb)
 
-add_definitions (-DUNICODE -D_UNICODE)
+    target_link_libraries (ZXingReader ZXing::ZXing)
 
-if (MSVC)
-    add_definitions (-D_SCL_SECURE_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_WARNINGS -DNOMINMAX)
-
-    set (CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /Oi /GS-")
-    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Oi /GS-")
-else()
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
-    set (CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -D_DEBUG")
-    set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
+    add_test(NAME ZXingReaderTest COMMAND ZXingReader -fast -format qrcode "${CMAKE_SOURCE_DIR}/test/samples/qrcode-1/1.png")
 endif()
 
-add_subdirectory (${CMAKE_CURRENT_SOURCE_DIR}/../core ${CMAKE_BINARY_DIR}/ZXingCore)
+if (BUILD_WRITERS)
+    add_executable (ZXingWriter ZXingWriter.cpp)
 
-if (ENABLE_DECODERS)
-    add_executable (scan_image
-        scan_image.cpp
-    )
-    
-    target_include_directories (scan_image
-        PRIVATE ../thirdparty/stb
-    )
+    target_include_directories (ZXingWriter PRIVATE ../thirdparty/stb)
 
-    target_compile_options (scan_image PRIVATE -DLODEPNG_NO_COMPILE_ENCODER)
+    target_link_libraries (ZXingWriter ZXing::ZXing)
 
-    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-        target_compile_options (scan_image PRIVATE -std=c++11)
-    elseif (APPLE)
-        target_compile_options (scan_image PRIVATE -std=c++11 -stdlib=libc++)
-    endif()
-
-    target_link_libraries (scan_image ZXingCore)
-
+    add_test(NAME ZXingWriterTest COMMAND ZXingWriter qrcode "I have the best words." test.png)
 endif()
 
-if (ENABLE_ENCODERS)
-    add_executable (generate_image
-        generate_image.cpp
-    )
-    
-    target_include_directories (generate_image
-        PRIVATE ../thirdparty/stb
-    )
-
-    target_compile_options (generate_image PRIVATE -DLODEPNG_NO_COMPILE_DECODER)
-    
-    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-        target_compile_options (generate_image PRIVATE -std=c++11)
-    elseif (APPLE)
-        target_compile_options (generate_image PRIVATE -std=c++11 -stdlib=libc++)
-    endif()
-
-    target_link_libraries (generate_image ZXingCore)
-
+find_package (Qt5 5.5 COMPONENTS Gui)
+if (TARGET Qt5::Gui)
+    add_executable (ZXingQtReader ZXingQtReader.cpp)
+    target_link_libraries(ZXingQtReader ZXing::ZXing Qt5::Gui)
 endif()

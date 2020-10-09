@@ -1,15 +1,33 @@
-cmake_minimum_required(VERSION 3.1.0)
-project(zxing)
+cmake_minimum_required(VERSION 3.14)
+project(ZXingPython)
 
-# download and include pybind11
-execute_process(COMMAND wget https://github.com/pybind/pybind11/archive/v2.2.4.tar.gz -O ${CMAKE_CURRENT_BINARY_DIR}/pybind11.tar.gz)
-execute_process(COMMAND tar -xzf ${CMAKE_CURRENT_BINARY_DIR}/pybind11.tar.gz -C ${CMAKE_CURRENT_BINARY_DIR})
-add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/pybind11-2.2.4 EXCLUDE_FROM_ALL)
+# get pybind11
+include(FetchContent)
+#set(FETCHCONTENT_QUIET Off)
+FetchContent_Declare (pybind11
+    GIT_REPOSITORY https://github.com/pybind/pybind11.git
+    GIT_TAG v2.5.0)
+FetchContent_MakeAvailable (pybind11)
 
-# build the main library
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../.. xzing-cpp EXCLUDE_FROM_ALL)
+# check if we are called from the top-level ZXing project
+get_directory_property(hasParent PARENT_DIRECTORY)
+if (NOT hasParent)
+    option (BUILD_SHARED_LIBS "Link python module to shared lib" OFF)
+    option (BUILD_WRITERS "Build with writer support (encoders)" ON)
+    option (BUILD_READERS "Build with reader support (decoders)" ON)
 
-# build the python module and link the other libs
+    # build the main library
+    if (NOT BUILD_SHARED_LIBS)
+        set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+    endif()
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../core ZXing EXCLUDE_FROM_ALL)
+
+    enable_testing()
+endif()
+
+# build the python module
 pybind11_add_module(zxing zxing.cpp)
-target_link_libraries(zxing PRIVATE ZXingCore pybind11)
+target_link_libraries(zxing PRIVATE ZXing::ZXing)
+
+add_test(NAME PythonTest COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/test.py -v)
+set_property(TEST PythonTest PROPERTY ENVIRONMENT PYTHONPATH=$<TARGET_FILE_DIR:zxing>)

@@ -19,7 +19,6 @@
 #include "DMBitMatrixParser.h"
 #include "DMDataBlock.h"
 #include "DecoderResult.h"
-#include "BitMatrix.h"
 #include "ReedSolomonDecoder.h"
 #include "GenericGF.h"
 #include "BitSource.h"
@@ -30,6 +29,11 @@
 #include "ZXTestSupport.h"
 
 #include <array>
+#include <algorithm>
+#include <list>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace ZXing {
 namespace DataMatrix {
@@ -201,7 +205,7 @@ static bool DecodeC40Segment(BitSource& bits, std::string& result)
 				if (cValue < 3) {
 					shift = cValue + 1;
 				}
-				else if (cValue < Length(C40_BASIC_SET_CHARS)) {
+				else if (cValue < Size(C40_BASIC_SET_CHARS)) {
 					char c40char = C40_BASIC_SET_CHARS[cValue];
 					if (upperShift) {
 						result.push_back((char)(c40char + 128));
@@ -226,7 +230,7 @@ static bool DecodeC40Segment(BitSource& bits, std::string& result)
 				shift = 0;
 				break;
 			case 2:
-				if (cValue < Length(C40_SHIFT2_SET_CHARS)) {
+				if (cValue < Size(C40_SHIFT2_SET_CHARS)) {
 					char c40char = C40_SHIFT2_SET_CHARS[cValue];
 					if (upperShift) {
 						result.push_back((char)(c40char + 128));
@@ -292,7 +296,7 @@ static bool DecodeTextSegment(BitSource& bits, std::string& result)
 				if (cValue < 3) {
 					shift = cValue + 1;
 				}
-				else if (cValue < Length(TEXT_BASIC_SET_CHARS)) {
+				else if (cValue < Size(TEXT_BASIC_SET_CHARS)) {
 					char textChar = TEXT_BASIC_SET_CHARS[cValue];
 					if (upperShift) {
 						result.push_back((char)(textChar + 128));
@@ -318,7 +322,7 @@ static bool DecodeTextSegment(BitSource& bits, std::string& result)
 				break;
 			case 2:
 				// Shift 2 for Text is the same encoding as C40
-				if (cValue < Length(TEXT_SHIFT2_SET_CHARS)) {
+				if (cValue < Size(TEXT_SHIFT2_SET_CHARS)) {
 					char textChar = TEXT_SHIFT2_SET_CHARS[cValue];
 					if (upperShift) {
 						result.push_back((char)(textChar + 128));
@@ -340,7 +344,7 @@ static bool DecodeTextSegment(BitSource& bits, std::string& result)
 				shift = 0;
 				break;
 			case 3:
-				if (cValue < Length(TEXT_SHIFT3_SET_CHARS)) {
+				if (cValue < Size(TEXT_SHIFT3_SET_CHARS)) {
 					char textChar = TEXT_SHIFT3_SET_CHARS[cValue];
 					if (upperShift) {
 						result.push_back((char)(textChar + 128));
@@ -486,7 +490,7 @@ static bool DecodeBase256Segment(BitSource& bits, std::string& result, std::list
 	byteSegments.push_back(bytes);
 
 	// bytes is in ISO-8859-1
-	result.append(bytes.charPtr(), bytes.size());
+	result.append(reinterpret_cast<const char*>(bytes.data()), bytes.size());
 	return true;
 }
 
@@ -567,7 +571,7 @@ CorrectErrors(ByteArray& codewordBytes, int numDataCodewords)
 {
 	// First read into an array of ints
 	std::vector<int> codewordsInts(codewordBytes.begin(), codewordBytes.end());
-	int numECCodewords = codewordBytes.length() - numDataCodewords;
+	int numECCodewords = Size(codewordBytes) - numDataCodewords;
 	if (!ReedSolomonDecoder::Decode(GenericGF::DataMatrixField256(), codewordsInts, numECCodewords))
 		return false;
 
@@ -604,7 +608,7 @@ DecoderResult Decoder::Decode(const BitMatrix& bits)
 	ByteArray resultBytes(totalBytes);
 
 	// Error-correct and copy data blocks together into a stream of bytes
-	int dataBlocksCount = static_cast<int>(dataBlocks.size());
+	int dataBlocksCount = Size(dataBlocks);
 	for (int j = 0; j < dataBlocksCount; j++) {
 		auto& dataBlock = dataBlocks[j];
 		ByteArray& codewordBytes = dataBlock.codewords();

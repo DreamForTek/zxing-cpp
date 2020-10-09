@@ -21,7 +21,10 @@
 #include "CharacterSet.h"
 #include "ByteArray.h"
 #include "ZXStrConvWorkaround.h"
+#include "ZXContainerAlgorithms.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <algorithm>
 #include <array>
@@ -168,7 +171,7 @@ static int LookAheadTest(const std::string& msg, size_t startpos, int currentMod
 			int min = std::numeric_limits<int>::max();
 			std::transform(charCounts.begin(), charCounts.end(), intCharCounts.begin(), [](float x) { return static_cast<int>(std::ceil(x)); });
 			min = FindMinimums(intCharCounts, min, mins);
-			int minCount = std::accumulate(mins.begin(), mins.end(), 0);
+			int minCount = Reduce(mins);
 
 			if (intCharCounts[ASCII_ENCODATION] == min) {
 				return ASCII_ENCODATION;
@@ -260,7 +263,7 @@ static int LookAheadTest(const std::string& msg, size_t startpos, int currentMod
 		if (charsProcessed >= 4) {
 			std::transform(charCounts.begin(), charCounts.end(), intCharCounts.begin(), [](float x) { return static_cast<int>(std::ceil(x)); });
 			FindMinimums(intCharCounts, std::numeric_limits<int>::max(), mins);
-			int minCount = std::accumulate(mins.begin(), mins.end(), 0);
+			int minCount = Reduce(mins);
 
 			if (intCharCounts[ASCII_ENCODATION] < intCharCounts[BASE256_ENCODATION]
 				&& intCharCounts[ASCII_ENCODATION] < intCharCounts[C40_ENCODATION]
@@ -452,8 +455,8 @@ namespace C40Encoder {
 	*/
 	static void HandleEOD(EncoderContext& context, std::string& buffer)
 	{
-		int unwritten = (static_cast<int>(buffer.length()) / 3) * 2;
-		int rest = static_cast<int>(buffer.length()) % 3;
+		int unwritten = (Size(buffer) / 3) * 2;
+		int rest = Size(buffer) % 3;
 
 		int curCodewordCount = context.codewordCount() + unwritten;
 		auto symbolInfo = context.updateSymbolInfo(curCodewordCount);
@@ -637,7 +640,7 @@ namespace X12Encoder {
 		int codewordCount = context.codewordCount();
 		auto symbolInfo = context.updateSymbolInfo(codewordCount);
 		int available = symbolInfo->dataCapacity() - codewordCount;
-		context.setCurrentPos(context.currentPos() - static_cast<int>(buffer.length()));
+		context.setCurrentPos(context.currentPos() - Size(buffer));
 		if (context.remainingCharacters() > 1 || available > 1 || context.remainingCharacters() != available) {
 			context.addCodeword(X12_UNLATCH);
 		}
@@ -688,7 +691,7 @@ namespace EdifactEncoder {
 
 	static ByteArray EncodeToCodewords(const std::string& sb, int startPos)
 	{
-		int len = static_cast<int>(sb.length()) - startPos;
+		int len = Size(sb) - startPos;
 		if (len == 0) {
 			throw std::invalid_argument("buffer must not be empty");
 		}
@@ -754,7 +757,7 @@ namespace EdifactEncoder {
 				int available = symbolInfo->dataCapacity() - codewordCount;
 				if (available >= 3) {
 					restInAscii = false;
-					context.updateSymbolInfo(codewordCount + static_cast<int>(encoded.size()));
+					context.updateSymbolInfo(codewordCount + Size(encoded));
 					//available = context.symbolInfo.dataCapacity - context.getCodewordCount();
 				}
 			}
@@ -837,7 +840,7 @@ namespace Base256Encoder {
 				break;
 			}
 		}
-		int dataCount = static_cast<int>(buffer.length()) - 1;
+		int dataCount = Size(buffer) - 1;
 		int lengthFieldSize = 1;
 		int currentSize = context.codewordCount() + dataCount + lengthFieldSize;
 		auto symbolInfo = context.updateSymbolInfo(currentSize);
@@ -904,12 +907,12 @@ HighLevelEncoder::Encode(const std::wstring& msg, SymbolShape shape, int minWdit
 	if (StartsWith(msg, MACRO_05_HEADER) && EndsWith(msg, MACRO_TRAILER)) {
 		context.addCodeword(MACRO_05);
 		context.setSkipAtEnd(2);
-		context.setCurrentPos(static_cast<int>(MACRO_05_HEADER.length()));
+		context.setCurrentPos(Size(MACRO_05_HEADER));
 	}
 	else if (StartsWith(msg, MACRO_06_HEADER) && EndsWith(msg, MACRO_TRAILER)) {
 		context.addCodeword(MACRO_06);
 		context.setSkipAtEnd(2);
-		context.setCurrentPos(static_cast<int>(MACRO_06_HEADER.length()));
+		context.setCurrentPos(Size(MACRO_06_HEADER));
 	}
 
 	int encodingMode = ASCII_ENCODATION; //Default mode
